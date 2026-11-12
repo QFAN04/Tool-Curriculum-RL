@@ -19,6 +19,7 @@
 - SDPO 的「含答案」与「只给校验错误」两种设置都跑，主表并列（2026-11-12 用户确认）。
 - Go/No-Go ② 的数据正确率门槛由 95% 调整为 90%，接受约 5–10% 的残留标签噪声并在报告中注明（2026-11-13 用户决定，见 `docs/experiment_cards/d2_data.md`）。
 - SFT 数据源定为 Toucan 的 SFT config，只取单轮、参数可从问题确定的样本。
+- 训练奖励保持完全匹配不改；D12 最终评测加一个「宽松准确率」补充指标（外部大模型判等价，仅评测用），见 PLAN §15.12（2026-11-13 用户确认）。
 - 实验矩阵以 PLAN §15.11 为准（§7 是修订前的版本）。
 - AutoDL 私有镜像 `tcrl-sdpo-7c457fc`（2026-11-13 用户保存，源自 `ssrl-verl070-vllm012` + SDPO@7c457fc + 4 个小包）。开机后先跑 `clean_stale.py`（镜像恢复会带回残留旧文件），见 `docs/experiment_cards/d1_smoke.md`。
 - 参考项目（SDPO、ToolRL、Tool-R0、R-Zero 等）用之前先查它的 issue / PR（用户要求）。
