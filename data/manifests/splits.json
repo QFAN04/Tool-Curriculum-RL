@@ -96,9 +96,9 @@
    "P:weekly_id"
   ]
  },
- "n_call_total": 13846,
- "n_dropped_partial_overlap": 2141,
- "n_train_side_before_cap": 9512,
+ "n_call_total": 13827,
+ "n_dropped_partial_overlap": 2140,
+ "n_train_side_before_cap": 9494,
  "n_families_total": 347,
  "splits": {
   "test_unseen": {
@@ -107,7 +107,7 @@
    "n_refuse": 276,
    "n_gold_families": 34,
    "n_multi_call": 260,
-   "ids_sha1": "2aea57043dc4b84ffc3789937b962099b2a4013d"
+   "ids_sha1": "7f27367be48168eb2e7627731b7fb9bd7ada1fef"
   },
   "dev_unseen": {
    "n": 541,
@@ -115,41 +115,41 @@
    "n_refuse": 81,
    "n_gold_families": 25,
    "n_multi_call": 70,
-   "ids_sha1": "9b73381e9176542002a8b1fbe1d2e5b74e47ca5e"
+   "ids_sha1": "7a61ce35a2f438a9cdf2ea82f49c8bef0a131690"
   },
   "test_seen": {
    "n": 1176,
    "n_call": 1000,
    "n_refuse": 176,
-   "n_gold_families": 103,
-   "n_multi_call": 184,
-   "ids_sha1": "816fb72d15049087884579ed91ea3ff9d4025a63",
-   "n_gold_seen_in_train": 282
+   "n_gold_families": 96,
+   "n_multi_call": 168,
+   "ids_sha1": "ccc8308cfa4a30208c8612632c1d5936c1f1d492",
+   "n_gold_seen_in_train": 285
   },
   "dev_seen": {
    "n": 588,
    "n_call": 500,
    "n_refuse": 88,
    "n_gold_families": 85,
-   "n_multi_call": 102,
-   "ids_sha1": "64d2372c9633d863fc91f0b3bb3d3c021501ad96",
-   "n_gold_seen_in_train": 222
+   "n_multi_call": 101,
+   "ids_sha1": "b796af6dde53583cc589b992fad722d814b15ef3",
+   "n_gold_seen_in_train": 249
   },
   "sft": {
    "n": 2318,
    "n_call": 1970,
    "n_refuse": 348,
-   "n_gold_families": 140,
+   "n_gold_families": 139,
    "n_multi_call": 423,
-   "ids_sha1": "00243be1da8e5b5835178859c3c3e2abff0d2d9c"
+   "ids_sha1": "9f887f099304a49c30ebd99053c4367c9c961fad"
   },
   "rl": {
    "n": 2318,
    "n_call": 1970,
    "n_refuse": 348,
    "n_gold_families": 136,
-   "n_multi_call": 473,
-   "ids_sha1": "5af00bd6677e0bdc90d7188eb01eedbdd8d711a3"
+   "n_multi_call": 484,
+   "ids_sha1": "3829df07eab022d05cf68398aa4b12972c16a83f"
   }
  }
 }

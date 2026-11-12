@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from tcrl.data.build import clean_question, grounded
+from tcrl.data.build import clean_question, grounded, operands_in_mention_order
 from tcrl.data.split import check_isolation, gold_families, make_splits, tool_family, visible_families
 
 
@@ -90,6 +90,16 @@ def test_clean_question_strips_or_unwraps_html_comments():
     assert clean_question("<!-- note -->\n  Real question?") == "Real question?"
     assert clean_question("<!-- Only inside? -->") == "Only inside?"
     assert clean_question("plain") == "plain"
+
+
+def test_commutative_operands_must_follow_mention_order():
+    mul = tool("calc-multiply", "a", "b")
+    mul["parameters"]["properties"] = {"a": {"type": "number"}, "b": {"type": "number"}}
+    q = "Each tile costs $12 and I need 47 tiles."
+    assert operands_in_mention_order({"name": "calc-multiply", "arguments": {"a": 12, "b": 47}}, mul, q)
+    assert not operands_in_mention_order({"name": "calc-multiply", "arguments": {"a": 47, "b": 12}}, mul, q)
+    div = tool("calc-divide", "a", "b")
+    assert operands_in_mention_order({"name": "calc-divide", "arguments": {"a": 47, "b": 12}}, div, q)  # 非可交换工具不管
 
 
 REAL = "data/processed/splits"

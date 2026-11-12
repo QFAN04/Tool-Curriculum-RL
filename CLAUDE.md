@@ -17,12 +17,13 @@
 - 模型 Qwen3-4B-Base + LoRA；算力 AutoDL RTX PRO 6000 96GB，每组 1 卡。
 - 预算：租卡总花费以不超过主项目（约 70 卡时）为目标；确有研究价值时可以略超，超之前先向用户说明理由（2026-11-12 用户确认）。
 - SDPO 的「含答案」与「只给校验错误」两种设置都跑，主表并列（2026-11-12 用户确认）。
+- Go/No-Go ② 的数据正确率门槛由 95% 调整为 90%，接受约 5–10% 的残留标签噪声并在报告中注明（2026-11-13 用户决定，见 `docs/experiment_cards/d2_data.md`）。
+- SFT 数据源定为 Toucan 的 SFT config，只取单轮、参数可从问题确定的样本。
 - 实验矩阵以 PLAN §15.11 为准（§7 是修订前的版本）。
 - AutoDL 私有镜像 `tcrl-sdpo-7c457fc`（2026-11-13 用户保存，源自 `ssrl-verl070-vllm012` + SDPO@7c457fc + 4 个小包）。开机后先跑 `clean_stale.py`（镜像恢复会带回残留旧文件），见 `docs/experiment_cards/d1_smoke.md`。
 - 参考项目（SDPO、ToolRL、Tool-R0、R-Zero 等）用之前先查它的 issue / PR（用户要求）。
 
 ## 待确认（确认后移到上面）
-- SFT 数据源：Toucan 的 SFT config 优先，xlam-60k 备选（D2 看过格式后定）。
 - 项目名与目录名。
 
 ## 关键模块（★ = 用户必须亲自读懂）
@@ -36,7 +37,7 @@
 D2 数据划分与奖励合并后 → D3 正式开跑前 → D7 课程启动前 → D13 报告定稿。
 
 ## 节奏与 Go/No-Go（详见 docs/PLAN.md §8）
-D1 底座 → D2 数据与奖励（人工核查 100 条 ≥ 95%）→ D3 SFT + probe（pass@8 − pass@1 ≥ 15 个百分点）→ D4–D6 RL → D7 RL 须优于 SFT-only 才启动课程 → D8–D11 两轮课程 → D12 封存测试 → D13–14 报告。
+D1 底座 → D2 数据与奖励（人工核查 100 条 ≥ 90%）→ D3 SFT + probe（pass@8 − pass@1 ≥ 15 个百分点）→ D4–D6 RL → D7 RL 须优于 SFT-only 才启动课程 → D8–D11 两轮课程 → D12 封存测试 → D13–14 报告。
 
 ## 红线（任何 agent 都必须遵守）
 1. **任何数字必须来自 `runs/<run_id>/` 下的真实日志。** README、报告、简历里的每个数字都标注 run_id。禁止预填、估计或把「预期结果」写成结果。

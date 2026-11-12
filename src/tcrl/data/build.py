@@ -107,6 +107,32 @@ def grounded(args: dict, question: str, props: dict, required: tuple | list = ()
     return True
 
 
+_COMMUTATIVE_RE = re.compile(r"(add|sum|plus|mul|multiply|times|product)", re.I)
+
+
+def operands_in_mention_order(call: dict, tool: dict, question: str) -> bool:
+    """加法 / 乘法这类两个操作数可互换的工具：只保留「按问题里出现的先后顺序填参数」的样本。
+
+    奖励是完全匹配，a、b 互换会被判错。统一成一个约定（先提到的放前面），模型才学得到。
+    其他工具一律返回 True。
+    """
+    if not _COMMUTATIVE_RE.search(tool["name"].rsplit("-", 1)[-1]):
+        return True
+    props = list(((tool.get("parameters") or {}).get("properties") or {}).keys())
+    vals = [call["arguments"][k] for k in props if k in call["arguments"]]
+    if len(vals) < 2 or not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in vals):
+        return True
+    q = f" {_norm(question)} "
+    pos, start = [], 0
+    for v in vals:
+        i = q.find(f" {_norm(v)} ", start)
+        if i == -1:
+            return False
+        pos.append(i)
+        start = i + 1
+    return pos == sorted(pos)
+
+
 def first_paragraph(text: str) -> str:
     """拒绝样本的目标回复只取第一段，并限制长度（原回复常常有上千字）。"""
     p = text.strip().split("\n\n")[0].strip()
@@ -166,6 +192,9 @@ def convert(row: dict, stats: collections.Counter) -> dict | None:
         params = idx[c["name"]].get("parameters") or {}
         if not grounded(c["arguments"], question, params.get("properties") or {}, params.get("required") or ()):
             stats["drop_ungrounded"] += 1
+            return None
+        if not operands_in_mention_order(c, idx[c["name"]], question):
+            stats["drop_operand_order"] += 1
             return None
     stats["keep_call"] += 1
     return {**base, "kind": "call", "gold": gold, "refusal": None}
