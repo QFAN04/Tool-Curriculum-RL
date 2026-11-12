@@ -60,18 +60,49 @@ def _leaves(v):
         yield v
 
 
-def grounded(args: dict, question: str, props: dict) -> bool:
-    """每个参数的叶子值是否都出现在问题里（按字母数字归一化后的整词匹配）。"""
+MAX_FREE_TEXT_WORDS = 5
+_QUOTES = "\"'“”‘’`「」『』"
+# 拒绝样本里如果带这类通用工具（能执行代码、跑命令、搜索），「工具都帮不上忙」就不成立
+_GENERIC_TOOL_RE = re.compile(r"(execute|exec|run|command|shell|code|eval|search|query|browse|fetch|scrape|think|ask|chat|llm)", re.I)
+
+
+def quoted_verbatim(value: str, question: str) -> bool:
+    """value 是否在问题里被引号原样括起来。"""
+    v = value.strip()
+    start = question.find(v)
+    while start != -1:
+        before = question[start - 1] if start > 0 else ""
+        after = question[start + len(v)] if start + len(v) < len(question) else ""
+        if before in _QUOTES and before and after in _QUOTES and after:
+            return True
+        start = question.find(v, start + 1)
+    return False
+
+
+def grounded(args: dict, question: str, props: dict, required: tuple | list = ()) -> bool:
+    """标准调用的参数是否都能从问题里唯一确定。规则（2026-11-13 人工核查后收紧）：
+
+    1. 每个叶子值都要在问题里出现（归一化后的整词匹配）。
+    2. 枚举值、布尔值、None：**必填**参数可以不出现在问题里（必须选一个）；
+       **可选**参数则必须出现，否则「填不填都行」，答案不唯一。
+    3. 超过 MAX_FREE_TEXT_WORDS 个词的字符串只有在问题里被引号原样括起来时才算数。
+       否则从哪截到哪不唯一（例如把一段业务描述当作 idea 参数）。
+    """
     q = f" {_norm(question)} "
     for k, v in args.items():
         spec = props.get(k) if isinstance(props.get(k), dict) else {}
+        is_required = k in required
         for leaf in _leaves(v):
             if isinstance(leaf, bool) or leaf is None:
-                continue
-            if "enum" in spec and leaf in spec["enum"]:
+                if is_required:
+                    continue
+                return False
+            if "enum" in spec and leaf in spec["enum"] and is_required:
                 continue
             ln = _norm(leaf)
             if ln and f" {ln} " not in q:
+                return False
+            if isinstance(leaf, str) and len(leaf.split()) > MAX_FREE_TEXT_WORDS and not quoted_verbatim(leaf, question):
                 return False
     return True
 
@@ -94,6 +125,9 @@ def convert(row: dict, stats: collections.Counter) -> dict | None:
     if row["subset_name"] == "irrelevant":
         if [m["role"] for m in msgs] != ["user", "assistant"]:
             stats["drop_irrelevant_shape"] += 1
+            return None
+        if any(_GENERIC_TOOL_RE.search(t["name"].rsplit("-", 1)[-1]) for t in tools):
+            stats["drop_refuse_generic_tool"] += 1
             return None
         stats["keep_refuse"] += 1
         return {**base, "kind": "refuse", "gold": [], "refusal": first_paragraph(msgs[1]["content"])}
@@ -129,8 +163,8 @@ def convert(row: dict, stats: collections.Counter) -> dict | None:
         if validate_call(c, tools):  # 标准答案自己都过不了 schema 的不要
             stats["drop_gold_invalid"] += 1
             return None
-        props = (idx[c["name"]].get("parameters") or {}).get("properties") or {}
-        if not grounded(c["arguments"], question, props):
+        params = idx[c["name"]].get("parameters") or {}
+        if not grounded(c["arguments"], question, params.get("properties") or {}, params.get("required") or ()):
             stats["drop_ungrounded"] += 1
             return None
     stats["keep_call"] += 1

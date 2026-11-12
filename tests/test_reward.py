@@ -99,6 +99,11 @@ def test_duplicate_call_counts():
     assert score(tc("get_weather", city="Paris", days=3) * 2, GOLD * 2) == 1.0
 
 
+def test_typographic_hyphens_and_quotes_are_equal_to_ascii():
+    gold = [{"name": "get_weather", "arguments": {"city": "Aix-en-Provence"}}]
+    assert score(tc("get_weather", city="Aix‑en‑Provence"), gold) == 1.0
+
+
 def test_string_is_not_number():
     assert score(tc("get_weather", city="Paris", days="3")) == 0.0
 
@@ -108,8 +113,10 @@ def test_bool_is_not_int():
     assert score(tc("get_weather", city="Paris", days=True), gold) == 0.0
 
 
-def test_case_sensitive_strings():
-    assert score(tc("get_weather", city="paris", days=3)) == 0.0
+def test_string_values_ignore_case_but_names_do_not():
+    assert score(tc("get_weather", city="paris", days=3)) == 1.0
+    assert score(tc("Get_Weather", city="Paris", days=3)) == 0.0
+    assert score('<tool_call>{"name": "get_weather", "arguments": {"City": "Paris", "days": 3}}</tool_call>') == 0.0
 
 
 def test_call_when_refusal_expected():

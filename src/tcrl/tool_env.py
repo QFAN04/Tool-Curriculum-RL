@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -67,20 +68,27 @@ def parse_tool_calls(text: str) -> ParseResult:
     return res
 
 
+_TYPO_MAP = str.maketrans({"‐": "-", "‑": "-", "‒": "-", "–": "-", "—": "-", "−": "-",
+                           "‘": "'", "’": "'", "“": '"', "”": '"'})
+
+
 def _norm_value(v: Any) -> Any:
     """值的归一化：只做不改变含义的事。
 
-    - 字符串去掉首尾空白；
+    - 字符串去掉首尾空白，并且不区分大小写（数据里同一个城市有时写 Tokyo 有时写 tokyo，
+      人工核查时发现这是纯噪声）。函数名和参数名仍然区分大小写；
     - 整数值的浮点数（5.0）与整数（5）视为相同；bool 不参与这条（True 不等于 1）；
     - dict 递归并按键排序；list 保持顺序（顺序在多数 API 里有含义）。
-    不做的事：字符串与数字互转、大小写折叠、同义改写。
+    不做的事：字符串与数字互转、同义改写。
     """
     if isinstance(v, bool) or v is None:
         return v
     if isinstance(v, float) and v.is_integer():
         return int(v)
     if isinstance(v, str):
-        return v.strip()
+        # 排版字符统一：各种连字符 -> "-"，弯引号 -> 直引号（问题里常是排版字符，标准答案里是 ASCII）
+        t = unicodedata.normalize("NFKC", v).translate(_TYPO_MAP)
+        return t.strip().casefold()
     if isinstance(v, dict):
         return {k: _norm_value(v[k]) for k in sorted(v)}
     if isinstance(v, list):

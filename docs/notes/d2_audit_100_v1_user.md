@@ -15,7 +15,7 @@
 ```
 `github-trending-get_github_trending_repositories` 必填：[]；参数：['language', 'since', 'spoken_language']。Get trending repositories on github
 
-判定：
+判定：对
 
 ## 2. [call] e0d04b8e
 
@@ -29,7 +29,7 @@
 ```
 `elevator-pitch-analyze_idea_tool` 必填：['idea']；参数：['idea']。Verilen iş fikrinden sektör, hedef kitle, problem ve çözüm çıkarır.
 
-判定：
+判定：存疑。idea 是自由文本；可原文摘录或作其他等义概括，精确字符串不唯一。
 
 ## 3. [call] 09968369
 
@@ -50,7 +50,7 @@
     Returns:
         Human readable string con
 
-判定：
+判定：对
 
 ## 4. [call] 05cf43a9
 
@@ -64,7 +64,7 @@
 ```
 `add-numbers-server-add_numbers` 必填：['first_number', 'second_number']；参数：['first_number', 'second_number']。计算两个数字的和
 
-判定：
+判定：存疑。加法满足交换律，两数分别放入 first_number 和 second_number 的顺序可以互换，调用结果相同。
 
 ## 5. [call] 735f9e3f
 
@@ -82,7 +82,7 @@
         prompt (str): The input prompt to send to the LLMs.
 
 
-判定：
+判定：对
 
 ## 6. [call] 9fa35e9c
 
@@ -99,7 +99,7 @@
 
 `usewebhook-generate_webhook` 必填：[]；参数：[]。Generate a webhook endpoint that captures incoming HTTP requests
 
-判定：
+判定：对
 
 ## 7. [call] 4aa445ac
 
@@ -113,7 +113,7 @@
 ```
 `model-context-protocol-server-calculate_bmi` 必填：['weight_kg', 'height_m']；参数：['weight_kg', 'height_m']。Calculate BMI given weight in kg and height in meters
 
-判定：
+判定：对
 
 ## 8. [call] 1aea49b0
 
@@ -127,7 +127,7 @@
 ```
 `datetime-context-provider-get_current_datetime` 必填：[]；参数：[]。Get the current server date and time
 
-判定：
+判定：对
 
 ## 9. [call] 70443cb6
 
@@ -141,7 +141,7 @@
 ```
 `elevator-pitch-analyze_idea_tool` 必填：['idea']；参数：['idea']。Verilen iş fikrinden sektör, hedef kitle, problem ve çözüm çıkarır.
 
-判定：
+判定：存疑。idea 是自由文本；保留原句或使用其他等义描述都合理，精确字符串不唯一。
 
 ## 10. [call] f537c362
 
@@ -166,7 +166,7 @@
     :param city: 城市名称（需使用英文）
     :return: 格式化后的天气信息
 
-判定：
+判定：对
 
 ## 11. [call] 82baeee8
 
@@ -180,7 +180,7 @@
 ```
 `steam-statistics-get_top_games` 必填：[]；参数：[]。Steam'in en çok oynanan oyunlarını ve oyuncu sayılarını döndürür
 
-判定：
+判定：存疑。说明只保证热门游戏及人数，未说明是否提供昨日同期数据；其他可见统计工具的说明也缺失，无法确定有无漏调。
 
 ## 12. [call] c56563f4
 
@@ -194,7 +194,7 @@
 ```
 `add-numbers-server-add_numbers` 必填：['first_number', 'second_number']；参数：['first_number', 'second_number']。计算两个数字的和
 
-判定：
+判定：存疑。加法满足交换律，两数分别放入 first_number 和 second_number 的顺序可以互换，调用结果相同。
 
 ## 13. [call] 4b2ee442
 
@@ -211,7 +211,7 @@
 
 `excel-mcp-server-validate_test_sc` 必填：[]；参数：[]。
 
-判定：
+判定：存疑。validate_test_sc 没有功能说明，也没有文件或数值参数，无法确认它能验证指定表格中的计算结果或该调用是否必要。
 
 ## 14. [call] c5186d22
 
@@ -227,7 +227,7 @@
 
 You MUST call this function before 'get-library-docs' to obtain a valid Context7-compatib
 
-判定：
+判定：对
 
 ## 15. [call] 5bb4ddb9
 
@@ -247,7 +247,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
     Returns:
         
 
-判定：
+判定：存疑。工具仅说明按水果名提供营养信息，没有份量参数或计量基准，无法确认能给出中等大小木瓜的精确含量。
 
 ## 16. [call] b43aa69c
 
@@ -261,7 +261,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `movie-recommender-get_movies` 必填：['keyword']；参数：['keyword']。Get movie suggestions based on keyword.
 
-判定：
+判定：存疑。电影关键词可以使用 sci-fi thriller、science fiction thriller 等合理写法，精确答案不唯一。
 
 ## 17. [call] a4e1374c
 
@@ -277,7 +277,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 You MUST call this function before 'get-library-docs' to obtain a valid Context7-compatib
 
-判定：
+判定：对
 
 ## 18. [call] 066bfc6a
 
@@ -294,7 +294,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
     Returns:
         List[str]: 热搜列表，如果获取失败则返回错误信息
 
-判定：
+判定：对
 
 ## 19. [call] 75fe4501
 
@@ -315,7 +315,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 `datetime-context-provider-get_current_datetime` 必填：[]；参数：[]。Get the current server date and time
 
-判定：
+判定：存疑。getTime 的时间戳可经 readableTime 转为可读时间，或计算并格式化；与标准调用不同的组合也可能合理。
 
 ## 20. [call] 48b943a5
 
@@ -329,7 +329,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `calculator-service-multiply` 必填：['a', 'b']；参数：['a', 'b']。Multiplies two numbers together.
 
-判定：
+判定：存疑。乘法满足交换律，参数 a、b 的两个数可以互换，调用结果相同。
 
 ## 21. [call] ab7b300d
 
@@ -351,7 +351,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
     :param city: 城市名称（需要试用英文，如 beijing）
     :return: 天气数据字典；若发生错误，返回包含error信息的字典
 
-判定：
+判定：存疑。天气工具说明未保证覆盖指定周末、六小时降水概率和预警，无法核实所需细节是否可由该调用取得。
 
 ## 22. [call] d5c78e80
 
@@ -368,7 +368,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `okx-server-get_price` 必填：['instrument']；参数：['instrument']。Get latest price for an OKX instrument
 
-判定：
+判定：存疑。工具说明仅提供最新价格，未说明时间戳或 30 分钟锁价；无法确认它满足题目的锁价要求。
 
 ## 23. [call] eaee4523
 
@@ -382,7 +382,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `usewebhook-generate_webhook` 必填：[]；参数：[]。Generate a webhook endpoint that captures incoming HTTP requests
 
-判定：
+判定：对
 
 ## 24. [call] d5a019b7
 
@@ -396,7 +396,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `simple-mcp-server-reverse_text_tool` 必填：['text']；参数：['text']。MCP aracı: gelen metni ters çevirir.
 
-判定：
+判定：对
 
 ## 25. [call] a8229d99
 
@@ -416,7 +416,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
     Returns:
         
 
-判定：
+判定：存疑。工具仅说明按水果名提供营养信息，没有份量参数或计量基准，无法确认能给出中等大小香蕉的精确含量。
 
 ## 26. [call] e5abde49
 
@@ -447,7 +447,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
     - animal-bird, animal-mammal, animal-marine
     - food-fruit, food-ve
 
-判定：
+判定：存疑。两次独立随机抽取可能得到同一个水果表情，不能保证 distinct；可能需要重复抽取或从列表中排除重复项。
 
 ## 27. [call] 411bf0b1
 
@@ -461,7 +461,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `simple-mcp-server-reverse_text_tool` 必填：['text']；参数：['text']。MCP aracı: gelen metni ters çevirir.
 
-判定：
+判定：对
 
 ## 28. [call] 6551b0fc
 
@@ -478,7 +478,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 `weather-forecast-server-get_live_temp` 必填：['latitude', 'longitude']；参数：['latitude', 'longitude']。Get live temperature for a given latitude and longitude.
 
-判定：
+判定：对
 
 ## 29. [call] efef510b
 
@@ -492,7 +492,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `datetime-context-provider-get_current_datetime` 必填：[]；参数：[]。Get the current server date and time
 
-判定：
+判定：对
 
 ## 30. [call] 3dd84512
 
@@ -515,7 +515,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
     - objects
   
 
-判定：
+判定：对
 
 ## 31. [call] 9d2bacfd
 
@@ -532,7 +532,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 `movie-recommender-get_movies` 必填：['keyword']；参数：['keyword']。Get movie suggestions based on keyword.
 
-判定：
+判定：存疑。电影主题是发现新口味及烹饪突破；umami 只是可能的关键词之一，也可选 culinary discovery 等。
 
 ## 32. [call] 2b678ee0
 
@@ -546,7 +546,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `code-runner-mcp-server-run-code` 必填：['code', 'languageId']；参数：['code', 'languageId']。Run code snippet and return the result.
 
-判定：
+判定：对
 
 ## 33. [call] 7b5c9174
 
@@ -560,7 +560,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `steam-statistics-get_popular_genres` 必填：[]；参数：[]。En popüler oyun türlerini ve oyuncu sayılarını döndürür
 
-判定：
+判定：对
 
 ## 34. [call] 39c34275
 
@@ -583,7 +583,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
     - objects
   
 
-判定：
+判定：存疑。展示的分类列表在 objects 处截断，未显示 flags；无法仅凭说明确认该参数值受支持。
 
 ## 35. [call] 6bb397fe
 
@@ -597,7 +597,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `math-server-multiply` 必填：['a', 'b']；参数：['a', 'b']。Multiply two integers.
 
-判定：
+判定：存疑。乘法满足交换律，参数 a、b 的两个数可以互换，调用结果相同。
 
 ## 36. [call] 0e4080f7
 
@@ -611,7 +611,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `shadcn/ui-component-reference-server-get_component_examples` 必填：['componentName']；参数：['componentName']。Get usage examples for a specific shadcn/ui component
 
-判定：
+判定：对
 
 ## 37. [call] e6157393
 
@@ -627,7 +627,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 - github - GitHub is where one hosts their code in a central location, to collaborate with others
 
-判定：
+判定：存疑。说明将参数称为 id，却未说明可否直接使用 OpenAPI URL；该格式能否接受无法从题面确认。
 
 ## 38. [call] f3e3cff5
 
@@ -644,7 +644,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 `soz-mcp-server-get_advice` 必填：[]；参数：[]。Rastgele tavsiye döner.
 
-判定：
+判定：错。get_advice 返回随机建议，无法根据实时天气或拍摄装备需求提供针对性建议；第二次调用多余。
 
 ## 39. [call] c915ec83
 
@@ -658,7 +658,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `model-context-protocol-server-calculate_bmi` 必填：['weight_kg', 'height_m']；参数：['weight_kg', 'height_m']。Calculate BMI given weight in kg and height in meters
 
-判定：
+判定：对
 
 ## 40. [call] a2f4db67
 
@@ -672,7 +672,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `add-test-add_a_and_b` 必填：['a', 'b']；参数：['a', 'b']。Add two numbers together
 
-判定：
+判定：存疑。加法满足交换律，参数 a、b 的两个数可以互换，调用结果相同。
 
 ## 41. [call] 2ee55f33
 
@@ -692,7 +692,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
     Returns:
         dict: Validation re
 
-判定：
+判定：对
 
 ## 42. [call] 72c88c47
 
@@ -715,7 +715,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
     - objects
     - 
 
-判定：
+判定：对
 
 ## 43. [call] 4858d24f
 
@@ -729,7 +729,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `mcp-server-get_bmi` 必填：['height', 'weight']；参数：['height', 'weight']。Calculate the BMI of a person given their height and weight
 
-判定：
+判定：存疑。工具说明未注明 height 的单位，无法判断应传 175 厘米还是 1.75 米。
 
 ## 44. [call] deb2b676
 
@@ -743,7 +743,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `aaaaaa-mcp-server-get_forecast` 必填：['lat', 'lon']；参数：['lat', 'lon']。Get weather forecast for a given latitude and longitude.
 
-判定：
+判定：存疑。工具无日期参数且说明未注明预报时间范围，无法确认其结果覆盖指定的 6 月 14 日。
 
 ## 45. [call] bfb3e6b2
 
@@ -757,7 +757,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `usewebhook-generate_webhook` 必填：[]；参数：[]。Generate a webhook endpoint that captures incoming HTTP requests
 
-判定：
+判定：对
 
 ## 46. [call] 16b26a64
 
@@ -771,7 +771,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `steam-statistics-get_top_games` 必填：[]；参数：[]。Steam'in en çok oynanan oyunlarını ve oyuncu sayılarını döndürür
 
-判定：
+判定：对
 
 ## 47. [call] 0e12c906
 
@@ -785,7 +785,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `elevator-pitch-analyze_idea_tool` 必填：['idea']；参数：['idea']。Verilen iş fikrinden sektör, hedef kitle, problem ve çözüm çıkarır.
 
-判定：
+判定：存疑。idea 是自由文本；原句和其他等义概括都合理，精确字符串不唯一。
 
 ## 48. [call] e8107953
 
@@ -799,7 +799,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `datetime-context-provider-get_current_datetime` 必填：[]；参数：[]。Get the current server date and time
 
-判定：
+判定：对
 
 ## 49. [call] ea6861eb
 
@@ -816,7 +816,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
     Returns:
         List[str]: 热搜列表，如果获取失败则返回错误信息
 
-判定：
+判定：对
 
 ## 50. [call] a5782d0f
 
@@ -830,7 +830,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `elevator-pitch-analyze_idea_tool` 必填：['idea']；参数：['idea']。Verilen iş fikrinden sektör, hedef kitle, problem ve çözüm çıkarır.
 
-判定：
+判定：存疑。idea 是自由文本；保留原句或改写为等义简介都合理，精确字符串不唯一。
 
 ## 51. [call] 9566a655
 
@@ -848,7 +848,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
         timestamp (float): A Unix timestamp (seconds since epoch) to convert.
             Can be obtained from the get
 
-判定：
+判定：对
 
 ## 52. [call] 815712c2
 
@@ -864,7 +864,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
     :param city: 城市名称（需使用英文）
     :return: 格式化后的天气信息
 
-判定：
+判定：对
 
 ## 53. [call] 87b8d53b
 
@@ -878,7 +878,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `aidaily-spider_ai_daily` 必填：[]；参数：[]。AI日报生成
 
-判定：
+判定：对
 
 ## 54. [call] cdf5c6d7
 
@@ -892,7 +892,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `soz-mcp-server-get_advice` 必填：[]；参数：[]。Rastgele tavsiye döner.
 
-判定：
+判定：错。工具只返回随机建议，不能按预算、时间和健康等条件指定爱好；没有依据认为该调用能完成所请求的筛选。
 
 ## 55. [call] d823e99b
 
@@ -917,7 +917,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
     Returns:
         The formatted markdown text
 
-判定：
+判定：存疑。多行文本的缩进和换行可按题面排版原样保留或规范化，精确 text 字符串并不唯一。
 
 ## 56. [call] a5ea3971
 
@@ -934,7 +934,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 `dictionary-server-get_definitions` 必填：['word']；参数：['word']。Get definitions for a word.
 
-判定：
+判定：对
 
 ## 57. [call] 1ba732c4
 
@@ -948,7 +948,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `math-server-multiply` 必填：['a', 'b']；参数：['a', 'b']。Multiply two integers.
 
-判定：
+判定：存疑。乘法满足交换律，参数 a、b 的两个数可以互换，调用结果相同。
 
 ## 58. [call] e3978913
 
@@ -962,7 +962,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `code-runner-mcp-server-run-code` 必填：['code', 'languageId']；参数：['code', 'languageId']。Run code snippet and return the result.
 
-判定：
+判定：对
 
 ## 59. [call] cbcba08b
 
@@ -984,7 +984,7 @@ print(annualize_profits(sample_profits))
 ```
 `code-runner-mcp-server-run-code` 必填：['code', 'languageId']；参数：['code', 'languageId']。Run code snippet and return the result.
 
-判定：
+判定：对
 
 ## 60. [call] dca44a76
 
@@ -1000,7 +1000,7 @@ print(annualize_profits(sample_profits))
 
 - github - GitHub is where one hosts their code in a central location, to collaborate with others
 
-判定：
+判定：存疑。说明未列出 stripe 是否为有效 id，也未说明 id 的格式约定，无法从题面确定该值。
 
 ## 61. [call] 69d80035
 
@@ -1014,7 +1014,7 @@ print(annualize_profits(sample_profits))
 ```
 `cat-facts-service-cat_fact` 必填：[]；参数：[]。Cat Facts API'den rastgele kedi bilgisi alır.
 
-判定：
+判定：对
 
 ## 62. [call] b5db993e
 
@@ -1045,7 +1045,7 @@ print(annualize_profits(sample_profits))
     - animal-bird, animal-mammal, animal-marine
     - food-fruit, food-ve
 
-判定：
+判定：对
 
 ## 63. [call] e69e467a
 
@@ -1069,7 +1069,7 @@ print(annualize_profits(sample_profits))
 ```
 `code-runner-mcp-server-run-code` 必填：['code', 'languageId']；参数：['code', 'languageId']。Run code snippet and return the result.
 
-判定：
+判定：对
 
 ## 64. [call] b3bc886a
 
@@ -1085,7 +1085,7 @@ print(annualize_profits(sample_profits))
 It extracts the current hour's temperature and weather code, maps
 the weather code to a human-readable description, and returns a formatted summar
 
-判定：
+判定：对
 
 ## 65. [call] a8b81077
 
@@ -1099,7 +1099,7 @@ the weather code to a human-readable description, and returns a formatted summar
 ```
 `usewebhook-generate_webhook` 必填：[]；参数：[]。Generate a webhook endpoint that captures incoming HTTP requests
 
-判定：
+判定：对
 
 ## 66. [call] 30fac1ee
 
@@ -1116,7 +1116,7 @@ the weather code to a human-readable description, and returns a formatted summar
 
 `movie-recommender-get_movies` 必填：['keyword']；参数：['keyword']。Get movie suggestions based on keyword.
 
-判定：
+判定：存疑。existentialism 是合理关键词，但 existentialist films 或其他等义主题词也可能合理，精确答案不唯一。
 
 ## 67. [call] 5fe6aa84
 
@@ -1130,7 +1130,7 @@ the weather code to a human-readable description, and returns a formatted summar
 ```
 `language-detection-server-detect` 必填：['text']；参数：['text']。MCP Tool: Detect language of the input text.
 
-判定：
+判定：对
 
 ## 68. [call] c863c4fe
 
@@ -1147,7 +1147,7 @@ the weather code to a human-readable description, and returns a formatted summar
     Returns:
         List[str]: 热搜列表，如果获取失败则返回错误信息
 
-判定：
+判定：对
 
 ## 69. [call] e67bbb65
 
@@ -1163,7 +1163,7 @@ the weather code to a human-readable description, and returns a formatted summar
     :param city: 城市名称（需使用英文）
     :return: 格式化后的天气信息
 
-判定：
+判定：对
 
 ## 70. [call] 9ebcb01d
 
@@ -1177,7 +1177,7 @@ the weather code to a human-readable description, and returns a formatted summar
 ```
 `crypto_mcp-sha256` 必填：['input']；参数：['input']。Calculate SHA-256 hash of a string
 
-判定：
+判定：存疑。工具计算字符串哈希，但文件校验和取决于实际字节编码及末尾换行；题目没有提供这些信息。
 
 ## 71. [call] 45581d1d
 
@@ -1191,7 +1191,7 @@ the weather code to a human-readable description, and returns a formatted summar
 ```
 `simple-mcp-server-reverse_text_tool` 必填：['text']；参数：['text']。MCP aracı: gelen metni ters çevirir.
 
-判定：
+判定：对
 
 ## 72. [call] 039b0497
 
@@ -1218,7 +1218,7 @@ the weather code to a human-readable description, and returns a formatted summar
     - animal-bird, animal-mammal, animal-marine
     - food-fruit, food-ve
 
-判定：
+判定：对
 
 ## 73. [call] c44042a2
 
@@ -1232,7 +1232,7 @@ the weather code to a human-readable description, and returns a formatted summar
 ```
 `steam-statistics-get_top_games` 必填：[]；参数：[]。Steam'in en çok oynanan oyunlarını ve oyuncu sayılarını döndürür
 
-判定：
+判定：对
 
 ## 74. [call] 47881e9c
 
@@ -1246,7 +1246,7 @@ the weather code to a human-readable description, and returns a formatted summar
 ```
 `usewebhook-generate_webhook` 必填：[]；参数：[]。Generate a webhook endpoint that captures incoming HTTP requests
 
-判定：
+判定：对
 
 ## 75. [call] ab48b343
 
@@ -1260,7 +1260,7 @@ the weather code to a human-readable description, and returns a formatted summar
 ```
 `simple-mcp-server-reverse_text_tool` 必填：['text']；参数：['text']。MCP aracı: gelen metni ters çevirir.
 
-判定：
+判定：对
 
 ## 76. [call] 253fbbb7
 
@@ -1278,7 +1278,7 @@ the weather code to a human-readable description, and returns a formatted summar
         timestamp (float): A Unix timestamp (seconds since epoch) to convert.
             Can be obtained from the get
 
-判定：
+判定：对
 
 ## 77. [call] 9c2dddd8
 
@@ -1294,7 +1294,7 @@ the weather code to a human-readable description, and returns a formatted summar
     :param city: 城市名称（需要试用英文，如 beijing）
     :return: 天气数据字典；若发生错误，返回包含error信息的字典
 
-判定：
+判定：存疑。天气工具说明未保证返回明日降水概率，无法确认该调用能支持 30% 阈值判断。
 
 ## 78. [call] aabf2b57
 
@@ -1310,7 +1310,7 @@ the weather code to a human-readable description, and returns a formatted summar
 
 You MUST call this function before 'get-library-docs' to obtain a valid Context7-compatib
 
-判定：
+判定：对
 
 ## 79. [call] b8a553ac
 
@@ -1324,7 +1324,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `drawing-tool-for-ai-assistants-drawing_generateCanvas` 必填：['width', 'height']；参数：['width', 'height']。Generate a new drawing canvas with specified width and height.
 
-判定：
+判定：存疑。题目尺寸单位是毫米，工具说明未给画布尺寸单位，不能确认 400、300 表示毫米。
 
 ## 80. [call] 08fc903f
 
@@ -1341,7 +1341,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 `github-trending-get_github_trending_developers` 必填：[]；参数：['language', 'since', 'spoken_language']。Get trending developers on github
 
-判定：
+判定：存疑。题目要求相同时间窗口，但没有指定 daily；省略 since 或选择其他共同窗口也可能合理。
 
 ## 81. [call] 7404385b
 
@@ -1355,7 +1355,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `defillama-api-server-get_tvl__by_protocol` 必填：['protocol']；参数：['protocol']。Simplified endpoint to get current TVL of a protocol
 
-判定：
+判定：对
 
 ## 82. [call] 4a501ba7
 
@@ -1372,7 +1372,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
     Biomart organizes biological data in a hierarchy: MART -> DATASET -> ATTRIBUTES/FILTERS.
     This function returns all available marts 
 
-判定：
+判定：对
 
 ## 83. [call] 8ab24b9a
 
@@ -1388,7 +1388,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 You MUST call this function before 'get-library-docs' to obtain a valid Context7-compatib
 
-判定：
+判定：对
 
 ## 84. [call] 56c9ae20
 
@@ -1402,7 +1402,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `datetime-context-provider-get_current_datetime` 必填：[]；参数：[]。Get the current server date and time
 
-判定：
+判定：对
 
 ## 85. [call] d7fc44cc
 
@@ -1416,7 +1416,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 ```
 `datetime-context-provider-get_current_datetime` 必填：[]；参数：[]。Get the current server date and time
 
-判定：
+判定：对
 
 ## 86. [refuse] 739987d5
 
@@ -1426,7 +1426,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 **目标回复**：I understand you're looking for recent CRISPR-Cas9 gene editing research articles, but I don't have access to academic databases or research paper repositories. The tools I have available are specifically designed for dog breed information and pet listings rather than scientific literature.
 
-判定：
+判定：对
 
 ## 87. [refuse] bbac0e40
 
@@ -1436,7 +1436,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 **目标回复**：I don't have direct access to the Metropolitan Museum of Art's collection database or a resource that would contain their specific object metadata. The drawing tool I have available is for creating visual drawings, not for accessing museum databases.
 
-判定：
+判定：对
 
 ## 88. [refuse] f4020363
 
@@ -1446,7 +1446,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 **目标回复**：I don’t have access to a tool that can retrieve news, press releases, or competitive-intelligence databases, so I can’t pull the specific launch details for DataPulse’s May product release or the latest pricing. To give you the accurate, up-to-date summary you need, I recommend:
 
-判定：
+判定：对
 
 ## 89. [refuse] e208cac2
 
@@ -1458,7 +1458,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 1. A request about retail-staff rosters and evolutionary optimisation.  
 2. The presence here (by name) of a “book-search-server” tool, whose ONLY capability is looking up book information on Open Library.
 
-判定：
+判定：对
 
 ## 90. [refuse] b9a2ca43
 
@@ -1468,7 +1468,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 **目标回复**：I understand you're looking for recent academic papers on AI in healthcare, specifically mentioning deep learning and hospitals, along with citation counts. However, I need to clarify what tools I have available.
 
-判定：
+判定：对
 
 ## 91. [refuse] 72ff28ce
 
@@ -1478,7 +1478,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 **目标回复**：I understand you're looking for the current Bitcoin (BTC/USDT) price on OKX exchange, but I don't have access to cryptocurrency price data from exchanges like OKX.
 
-判定：
+判定：对
 
 ## 92. [refuse] 2e11b929
 
@@ -1488,7 +1488,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 **目标回复**：I'll help you calculate the total amount by breaking this down:
 
-判定：
+判定：错。execute_command 可执行计算命令，能帮助计算商品加运费的总额；不应按所有工具都帮不上判为拒绝。
 
 ## 93. [refuse] d941807a
 
@@ -1498,7 +1498,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 **目标回复**：I can help you calculate that! Let me break this down step by step:
 
-判定：
+判定：对
 
 ## 94. [refuse] 8739066a
 
@@ -1508,7 +1508,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 **目标回复**：I don't have access to real-time currency exchange rates or financial conversion tools to give you the exact CAD amount for 3,000 Euros. The tools available to me are specifically for accessing news from The Verge.
 
-判定：
+判定：对
 
 ## 95. [refuse] f01ace69
 
@@ -1518,7 +1518,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 **目标回复**：I can help with the BSV/USD rate, but the OKX APIs I have access to are designed for centralized-exchange instruments (like “BTC-USDT”) rather than for ordinals-marketplace data such as specific BSV-20 token listings.
 
-判定：
+判定：存疑。get_price 可能有助于查询 BSV 相关汇率，但题面没有说明是否支持所需交易对，无法确定拒绝是否正确。
 
 ## 96. [refuse] 59adf6c5
 
@@ -1528,7 +1528,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 **目标回复**：我注意到您询问的是关于《鸣潮》中吟霖（Yinlin）的声骸搭配和副本信息，这似乎是游戏相关的问题。不过我现在可用的工具主要是用来处理桌面.txt文件和获取美国天气警报信息的，并不包含游戏攻略查询功能。
 
-判定：
+判定：对
 
 ## 97. [refuse] a869b803
 
@@ -1538,7 +1538,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 **目标回复**：I understand you're asking about weather alerts for your Denver to Goodland road trip, but the tools I have available are specifically designed for After Effects video editing workflows rather than weather or travel information.
 
-判定：
+判定：对
 
 ## 98. [refuse] 2cf324e5
 
@@ -1548,7 +1548,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 **目标回复**：I understand you want to create a Word document, but the tools I have available are specifically designed for Unity Editor integration. These tools can only work with files within a Unity project (like Unity scenes, scripts, prefabs, etc.).
 
-判定：
+判定：对
 
 ## 99. [refuse] 3b4e2d72
 
@@ -1558,7 +1558,7 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 **目标回复**：I don't have access to current weather data or temperature information through my available tools. My tools are specifically designed for retrieving programming library documentation, not real-time weather conditions.
 
-判定：
+判定：对
 
 ## 100. [refuse] 5f57ead9
 
@@ -1568,5 +1568,5 @@ You MUST call this function before 'get-library-docs' to obtain a valid Context7
 
 **目标回复**：I don't have access to a tool that can search for and retrieve specific academic publications or generate BibTeX entries. To find recent publications on machine learning in healthcare for your research paper, I'd recommend using these resources:
 
-判定：
+判定：对
 

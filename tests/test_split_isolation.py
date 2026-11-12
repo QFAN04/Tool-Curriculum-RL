@@ -67,7 +67,18 @@ def test_grounded_filter():
     assert grounded({"city": "New York", "days": 3}, "Weather in new york for 3 days?", {})
     assert not grounded({"city": "Boston"}, "Weather in New York?", {})
     assert not grounded({"days": 3}, "Weather for 30 days", {})  # 整词匹配，3 不等于 30
-    assert grounded({"unit": "c", "flag": True}, "anything", props)  # 枚举和布尔不要求出现在问题里
+    # 必填的枚举 / 布尔可以不出现在问题里；可选的必须出现，否则填不填都行
+    assert grounded({"unit": "c", "flag": True}, "anything", props, required=("unit", "flag"))
+    assert not grounded({"unit": "c"}, "anything", props)
+    assert not grounded({"flag": True}, "anything", props)
+    assert grounded({"unit": "c"}, "give it in c please", props)
+
+
+def test_long_free_text_must_be_quoted_verbatim():
+    idea = "an app that helps insurance agents assess damages from photos"
+    assert not grounded({"idea": idea}, f"I have {idea}, what sector is it?", {})
+    assert grounded({"prompt": idea}, f'Generate an image of "{idea}" please', {})
+    assert grounded({"city": "New York City"}, "weather in New York City", {})  # 短字符串不受影响
 
 
 def test_grounded_handles_non_ascii():
