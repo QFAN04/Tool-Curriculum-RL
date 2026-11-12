@@ -14,12 +14,13 @@
 
 - 底座：`lasgroup/SDPO`（veRL 0.7.0.dev，含 GRPO 与 SDPO），submodule 固定在 `7c457fc`；GPU 冒烟不过则退回 veRL 0.7 镜像只做 GRPO（2026-11-12 用户确认）。
 - RL 阶段做 GRPO vs SDPO 对照（E2）（2026-11-12 用户确认）。
-- 模型 Qwen3-4B-Base + LoRA；算力 AutoDL RTX PRO 6000 96GB，每组 1 卡。预算用到时再定，原则是省。
+- 模型 Qwen3-4B-Base + LoRA；算力 AutoDL RTX PRO 6000 96GB，每组 1 卡。
+- 预算：租卡总花费以不超过主项目（约 70 卡时）为目标；确有研究价值时可以略超，超之前先向用户说明理由（2026-11-12 用户确认）。
+- SDPO 的「含答案」与「只给校验错误」两种设置都跑，主表并列（2026-11-12 用户确认）。
 - 参考项目（SDPO、ToolRL、Tool-R0、R-Zero 等）用之前先查它的 issue / PR（用户要求）。
 
 ## 待确认（确认后移到上面）
 - SFT 数据源：Toucan 的 SFT config 优先，xlam-60k 备选（D2 看过格式后定）。
-- SDPO 的反馈是否包含标准答案（主设置沿用上游；不含答案作为消融）。
 - 项目名与目录名。
 
 ## 关键模块（★ = 用户必须亲自读懂）
