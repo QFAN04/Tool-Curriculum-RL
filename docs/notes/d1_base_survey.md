@@ -13,10 +13,9 @@
 - issue #29：有人贴了 RTX 6000 Blackwell（即 PRO 6000 同代）的完整环境版本表，说明需要设 bfloat16；`requirements.txt` 注明 Blackwell 需 vllm ≥ 0.12 且「未充分测试」。
 
 ### 需要处理的问题
-1. **LoRA + EMA 老师不能直接用（读源码得出，未运行验证）。**
-   - SDPO 模式下 actor worker 的角色是 `actor_rollout_ref`，会再建一份完整模型作为老师（`fsdp_workers.py` 第 852–905 行）。
-   - EMA 更新是 `zip(teacher.parameters(), actor.parameters())` 逐个对齐（`dp_actor.py` 第 132–151 行）。actor 套了 peft 之后参数序列里多了 `lora_A / lora_B`，与老师的序列对不上。
-   - 可选做法：(a) `teacher_update_rate=0`，老师固定为初始模型，不需要改代码，但老师不会进步；(b) 写 patch，让老师也挂一份 LoRA，只对 adapter 权重按名字做 EMA。倾向先用 (a) 冒烟，再做 (b)。(b) 是一处有价值的自研改动。
+1. **LoRA + EMA 老师：预计可以直接用（2026-11-12 更正）。**
+   - 最初的结论「actor 套 peft 后与老师参数错位」是错的。`_build_model_optimizer` 里 `if self._is_lora:` 不区分角色（`fsdp_workers.py` 第 436 行起），ref 模块同样会挂 LoRA，所以 `zip(teacher.parameters(), actor.parameters())` 是对齐的。astra 审查时指出，主控已复核源码。
+   - 冒烟时仍要验证：EMA 更新不报错；老师与学生的 `lora_A` 随机初始化是否相同（不同的话老师的 `B·A` 在早期没有意义）；checkpoint 不保存老师状态，恢复训练会重置老师。
 2. **工具任务上训练后期会崩**（issue #25）：Qwen3-8B 默认配置约 400 步后准确率掉到接近 0。作者回复：影响最大的是老师 EMA 速率和损失类型，Jensen-Shannon（`alpha=0.5`）比正向 / 反向 KL 稳定得多。对策：用 `alpha=0.5`，按 dev 选 checkpoint，步数不超过出现崩溃的区间。
 3. **小模型上 SDPO 的泛化有争议**（issue #26）：多人反馈 1.7B–4B 在数学上训练奖励上升但验证集不涨，怀疑是在记忆演示；也有人用 Qwen3-8B 得到正结果。这正好是我们 RQ2 要在「未见工具族」上检验的问题，报告里可以直接回应。
 4. **自带打分器的反馈会把标准答案写进去**（`expected {gt_actions}`）。我们的 PLAN §3.3 原先写「不泄漏答案」。需要定：沿用上游做法（老师能看到答案），还是只给校验错误信息。建议两种都留，作为 SDPO 臂内的一个小消融，主设置先沿用上游。

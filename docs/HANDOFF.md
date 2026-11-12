@@ -27,7 +27,7 @@
 ## D1 桌面调研更正（2026-11-12，详见 `docs/notes/d1_base_survey.md`）
 - SDPO 仓库自带工具调用任务（ToolAlpaca）和 GRPO 基线，版本 veRL 0.7.0.dev，有 LoRA 配置。上面「README 里没有工具调用任务」的说法作废。
 - Tool-R0 仓库有完整流程代码（trl + peft，非 veRL）。上面「没有可用代码」的说法作废。
-- LoRA + EMA 老师需要 patch；工具任务后期崩溃有作者给的对策（JS 损失）。
+- LoRA + EMA 老师预计可直接用（ref 也挂 LoRA；主控最初读错，astra 纠正）；工具任务后期崩溃有作者给的对策（JS 损失）。
 - Qwen3-4B-Base 与 Toucan（SFT config 11.9 万条，Apache-2.0）已核实存在。
 
 ## 未核实的说法（引用前先查）
