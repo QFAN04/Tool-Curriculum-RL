@@ -17,6 +17,8 @@
 - 模型 Qwen3-4B-Base + LoRA；算力 AutoDL RTX PRO 6000 96GB，每组 1 卡。
 - 预算：租卡总花费以不超过主项目（约 70 卡时）为目标；确有研究价值时可以略超，超之前先向用户说明理由（2026-11-12 用户确认）。
 - SDPO 的「含答案」与「只给校验错误」两种设置都跑，主表并列（2026-11-12 用户确认）。
+- 实验矩阵以 PLAN §15.11 为准（§7 是修订前的版本）。
+- AutoDL 私有镜像 `tcrl-sdpo-7c457fc`（2026-11-13 用户保存，源自 `ssrl-verl070-vllm012` + SDPO@7c457fc + 4 个小包）。开机后先跑 `clean_stale.py`（镜像恢复会带回残留旧文件），见 `docs/experiment_cards/d1_smoke.md`。
 - 参考项目（SDPO、ToolRL、Tool-R0、R-Zero 等）用之前先查它的 issue / PR（用户要求）。
 
 ## 待确认（确认后移到上面）
