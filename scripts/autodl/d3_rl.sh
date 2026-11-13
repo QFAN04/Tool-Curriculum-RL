@@ -33,8 +33,9 @@ actor_rollout_ref.actor.self_distillation.dont_reprompt_on_self_success=True"
     EXTRA="$EXTRA actor_rollout_ref.actor.self_distillation.success_reward_threshold=2.0"
   fi
 fi
-( nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits -l 5 > $OUT/gpu_mem.txt ) & MON=$!
+( nvidia-smi --query-gpu=index,memory.used --format=csv,noheader,nounits -l 5 > "$OUT/gpu_mem_by_device.csv" ) & MON=$!
 python -m verl.trainer.main_ppo --config-name $CFG $COMMON $EXTRA "$@" > $OUT/train.log 2>&1
 RC=$?; kill $MON; echo "RC=$RC" >> $OUT/train.log
+cut -d, -f2 "$OUT/gpu_mem_by_device.csv" | tr -d ' ' > "$OUT/gpu_mem.txt"
 echo "RC=$RC peak_mem_MiB=$(sort -n $OUT/gpu_mem.txt | tail -1)" > $OUT/done.txt
 exit "$RC"
