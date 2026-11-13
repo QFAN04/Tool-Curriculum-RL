@@ -20,9 +20,13 @@ def compute_score(data_source: str, solution_str: str, ground_truth: str, extra_
     tools = None
     if extra_info and extra_info.get("tools_json"):
         tools = json.loads(extra_info["tools_json"])
-    return _score(
+    result = _score(
         solution_str,
         ground_truth,
         tools,
         include_gold_in_feedback=os.environ.get("TCRL_FEEDBACK_GOLD", "1") == "1",
     )
+    if extra_info and "id" in extra_info:
+        result["sample_id"] = extra_info["id"]
+        result["split"] = extra_info.get("split", "")
+    return result

@@ -8,6 +8,11 @@ from __future__ import annotations
 
 import json
 
+# 渲染对话模板时统一传这组参数。SDPO 的默认配置是 enable_thinking=False；
+# Qwen3-4B-Base 的模板在这个设置下会在 assistant 开头放一个空的 <think></think>，
+# SFT、RL、评测必须都一样，否则训练和推理看到的前缀不同。
+CHAT_KWARGS = {"enable_thinking": False}
+
 SYSTEM_SOLVE = (
     "You are a helpful assistant with access to the following functions. "
     "Decide whether any of them is needed to answer the user.\n"

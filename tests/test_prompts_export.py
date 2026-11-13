@@ -50,3 +50,82 @@ def test_rl_rows_and_verl_reward_entry(monkeypatch):
     monkeypatch.setenv("TCRL_FEEDBACK_GOLD", "0")
     fb = verl_reward.compute_score("tcrl", bad, gt, ei)["feedback"]
     assert "Paris" not in fb and fb
+
+
+def test_sft_special_token_init_and_grad_routing():
+    import types
+    import torch
+    import torch.nn as nn
+    from tcrl.sft.train_sft import (
+        SPECIAL_TOKEN_INIT,
+        enable_special_token_grads,
+        init_special_embeddings,
+        sync_special_rows,
+    )
+
+    specials = list(SPECIAL_TOKEN_INIT)
+    vocab_tokens = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"] + specials
+    tok_to_id = {t: idx for idx, t in enumerate(vocab_tokens)}
+
+    class DummyTok:
+        def convert_tokens_to_ids(self, s):
+            return tok_to_id[s]
+
+        def encode(self, text, add_special_tokens=False):
+            # Deterministic non-identical subword ids from characters in text
+            return [sum(ord(ch) for ch in text[i : i + 2]) % 10 for i in range(0, len(text), 2)]
+
+    class DummyModel(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.config = types.SimpleNamespace(tie_word_embeddings=True)
+            self.emb = nn.Embedding(len(vocab_tokens), 8)
+            with torch.no_grad():
+                torch.manual_seed(0)
+                self.emb.weight[:10].normal_(0, 1.0)
+                # Collapse all special rows onto the exact same vector (mimicking Qwen3-4B-Base)
+                collapsed = torch.ones(8) * 0.1
+                for tid in range(10, len(vocab_tokens)):
+                    self.emb.weight[tid] = collapsed
+
+        def get_input_embeddings(self):
+            return self.emb
+
+        def forward(self, input_ids):
+            h = self.emb(input_ids)
+            return h @ self.emb.weight.T
+
+    model = DummyModel()
+    tok = DummyTok()
+    special_ids = init_special_embeddings(model, tok)
+    assert special_ids == list(range(10, 10 + len(specials)))
+
+    # Special rows should now be distinct and rescaled to median normal norm
+    w = model.get_input_embeddings().weight
+    normal_median = w[:10].norm(dim=1).median().item()
+    for tid in special_ids:
+        assert abs(w[tid].norm().item() - normal_median) < 1e-4
+    sp_vecs = w[special_ids]
+    assert not torch.allclose(sp_vecs[0], sp_vecs[1])
+
+    # Calling init again on an already-initialized/trained model (e.g., E0+) must preserve weights
+    sp_snapshot = sp_vecs.detach().clone()
+    init_special_embeddings(model, tok)
+    assert torch.equal(w[special_ids], sp_snapshot)
+
+    # Freeze normal rows; only special_ids should update after step + sync
+    normal_before = w[:10].detach().clone()
+    sp_before = w[special_ids].detach().clone()
+    sp_param = enable_special_token_grads(model, special_ids)
+    opt = torch.optim.SGD([sp_param], lr=0.5)
+
+    x = torch.tensor([[0, 1, special_ids[0], special_ids[2]]])
+    logits = model(x)
+    loss = logits[:, :, special_ids[0]].sum() - logits[:, :, 0].sum()
+    loss.backward()
+    w.grad = None
+    opt.step()
+    sync_special_rows(model, special_ids, sp_param)
+
+    assert torch.equal(w[:10], normal_before)
+    assert not torch.equal(w[special_ids], sp_before)

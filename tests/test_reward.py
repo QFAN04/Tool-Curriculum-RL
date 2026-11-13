@@ -102,6 +102,9 @@ def test_duplicate_call_counts():
 def test_typographic_hyphens_and_quotes_are_equal_to_ascii():
     gold = [{"name": "get_weather", "arguments": {"city": "Aix-en-Provence"}}]
     assert score(tc("get_weather", city="Aix‑en‑Provence"), gold) == 1.0
+    # Regression from d2_audit_100_v2 #9 (d841e690): U+2011 -> NFKC U+2010 -> _TYPO_MAP ASCII '-'
+    audit9_gold = [{"name": "hang-inthere-mcp-server-get_restaurant_tool", "arguments": {"address": "295 Kiyomizu-cho, Kyoto"}}]
+    assert compute_score(tc("hang-inthere-mcp-server-get_restaurant_tool", address="295 Kiyomizu\u2011cho, Kyoto"), audit9_gold)["score"] == 1.0
 
 
 def test_string_is_not_number():

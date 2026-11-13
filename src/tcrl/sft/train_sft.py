@@ -20,9 +20,75 @@ import random
 import time
 
 
+SPECIAL_TOKEN_INIT = {
+    "<|im_start|>": "<| start message |>",
+    "<|im_end|>": "<| end message |>",
+    "<tool_call>": "<tool_call_begin>",
+    "</tool_call>": "</tool_call_end>",
+    "<think>": "<think_begin>",
+    "</think>": "</think_end>",
+}
+
+
+def init_special_embeddings(model, tokenizer) -> list[int]:
+    """用 Base 词表里语义相近的子词均值初始化未训练特殊 token（避免它们在 tied embedding 中彼此重合）。"""
+    import torch
+
+    special_ids = [tokenizer.convert_tokens_to_ids(t) for t in SPECIAL_TOKEN_INIT]
+    w = model.get_input_embeddings().weight
+    with torch.no_grad():
+        # 若特殊 token 已彼此区分（如从 d3_sft_merged 继续做 E0+），保留原权重不重置
+        if len(special_ids) >= 2 and (w[special_ids].float() - w[special_ids[0]].float()).abs().max().item() > 1e-3:
+            return special_ids
+        n_normal = min(150000, max(1, w.size(0) - len(special_ids)))
+        target_norm = w[:n_normal].float().norm(dim=1).median().item()
+        for phrase, tid in zip(SPECIAL_TOKEN_INIT.values(), special_ids):
+            sub_ids = tokenizer.encode(phrase, add_special_tokens=False)
+            v = w[sub_ids].float().mean(dim=0)
+            v = v * (target_norm / (v.norm() + 1e-12))
+            w[tid] = v.to(dtype=w.dtype, device=w.device)
+        if not getattr(model.config, "tie_word_embeddings", True) and model.get_output_embeddings() is not None:
+            ow = model.get_output_embeddings().weight
+            ow[special_ids] = w[special_ids].to(dtype=ow.dtype, device=ow.device)
+    return special_ids
+
+
+def enable_special_token_grads(model, special_ids: list[int], init_weight=None):
+    """只为 special_ids 这几行开启梯度更新，其余词表行梯度置零以保留未见工具的泛化表征。"""
+    import torch
+
+    w = model.get_input_embeddings().weight
+    sp_ids = torch.tensor(special_ids, device=w.device, dtype=torch.long)
+    base_rows = init_weight.detach().clone().to(device=w.device, dtype=torch.float32) if init_weight is not None else w.detach()[sp_ids].clone().float()
+    sp_param = torch.nn.Parameter(base_rows)
+    if init_weight is not None:
+        with torch.no_grad():
+            w[sp_ids] = sp_param.to(dtype=w.dtype, device=w.device)
+    w.requires_grad_(True)
+
+    def _hook(grad):
+        g = grad[sp_ids].float()
+        sp_param.grad = g if sp_param.grad is None else (sp_param.grad + g)
+        return torch.zeros_like(grad)
+
+    w.register_hook(_hook)
+    return sp_param
+
+
+def sync_special_rows(model, special_ids: list[int], sp_param) -> None:
+    import torch
+
+    w = model.get_input_embeddings().weight
+    sp_ids = torch.tensor(special_ids, device=w.device, dtype=torch.long)
+    with torch.no_grad():
+        w[sp_ids] = sp_param.to(dtype=w.dtype, device=w.device)
+
+
 def build_example(tokenizer, messages: list[dict], max_len: int):
     """返回 (input_ids, labels)。提示部分用模板渲染到「该 assistant 开口」为止，答案部分单独编码后接上结束符。"""
-    prompt = tokenizer.apply_chat_template(messages[:-1], tokenize=False, add_generation_prompt=True)
+    from tcrl.prompts import CHAT_KWARGS
+
+    prompt = tokenizer.apply_chat_template(messages[:-1], tokenize=False, add_generation_prompt=True, **CHAT_KWARGS)
     p_ids = tokenizer(prompt, add_special_tokens=False)["input_ids"]
     a_ids = tokenizer(messages[-1]["content"] + "<|im_end|>", add_special_tokens=False)["input_ids"]
     ids = (p_ids + a_ids)[:max_len]
@@ -36,9 +102,28 @@ def merge(args) -> None:
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
     base = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float32)
+    sp_path = os.path.join(args.merge, "special_tokens.pt")
+    if os.path.exists(sp_path):
+        sp = torch.load(sp_path, map_location="cpu", weights_only=True)
+        with torch.no_grad():
+            w = base.get_input_embeddings().weight
+            sp_ids = torch.tensor(sp["ids"], dtype=torch.long)
+            w[sp_ids] = sp["weight"].to(dtype=w.dtype, device=w.device)
+            if not getattr(base.config, "tie_word_embeddings", True) and base.get_output_embeddings() is not None:
+                ow = base.get_output_embeddings().weight
+                ow[sp_ids] = sp["weight"].to(dtype=ow.dtype, device=ow.device)
     model = PeftModel.from_pretrained(base, args.merge).merge_and_unload()
+    # Base 模型的 eos 是 <|endoftext|>，而 SFT 教的是以 <|im_end|> 结束一轮。
+    # 把两者都设为停止符，并把 tokenizer 的 eos 改成 <|im_end|>（与 Instruct 版一致），
+    # 这样 vLLM 和 verl 都会在 <|im_end|> 处停。
+    tok = AutoTokenizer.from_pretrained(args.model)
+    im_end, eot = tok.convert_tokens_to_ids("<|im_end|>"), tok.convert_tokens_to_ids("<|endoftext|>")
+    model.generation_config.eos_token_id = [im_end, eot]
+    model.config.eos_token_id = im_end
     model.to(torch.bfloat16).save_pretrained(args.out, safe_serialization=True)
-    AutoTokenizer.from_pretrained(args.model).save_pretrained(args.out)
+    tok.eos_token = "<|im_end|>"
+    tok.pad_token = "<|endoftext|>"
+    tok.save_pretrained(args.out)
     print("merged ->", args.out)
 
 
@@ -87,10 +172,20 @@ def main() -> None:
 
     model = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.bfloat16, device_map={"": 0})
     model.gradient_checkpointing_enable()
+    special_ids = init_special_embeddings(model, tok)
     start, ckpts = 0, sorted(
-        (d for d in os.listdir(args.out) if d.startswith("step-")), key=lambda d: int(d.split("-")[1])
+        (
+            d for d in os.listdir(args.out)
+            if d.startswith("step-")
+            and os.path.exists(os.path.join(args.out, d, "trainer_state.pt"))
+            and os.path.exists(os.path.join(args.out, d, "special_tokens.pt"))
+        ),
+        key=lambda d: int(d.split("-")[1]),
     )
+    resume_sp_weight = None
     if args.resume and ckpts:
+        sp = torch.load(os.path.join(args.out, ckpts[-1], "special_tokens.pt"), map_location="cpu", weights_only=True)
+        resume_sp_weight = sp["weight"]
         model = PeftModel.from_pretrained(model, os.path.join(args.out, ckpts[-1]), is_trainable=True)
         start = int(ckpts[-1].split("-")[1])
     else:
@@ -98,7 +193,9 @@ def main() -> None:
             model,
             LoraConfig(task_type="CAUSAL_LM", r=args.lora_rank, lora_alpha=args.lora_alpha, target_modules="all-linear"),
         )
-    params = [p for p in model.parameters() if p.requires_grad]
+    sp_param = enable_special_token_grads(model, special_ids, init_weight=resume_sp_weight)
+    w_emb = model.get_input_embeddings().weight
+    params = [p for p in model.parameters() if p.requires_grad and p is not w_emb] + [sp_param]
     opt = torch.optim.AdamW(params, lr=args.lr, weight_decay=0.0)
     sched = get_cosine_schedule_with_warmup(opt, int(0.03 * total), total)
     state = os.path.join(args.out, ckpts[-1], "trainer_state.pt") if (args.resume and ckpts) else None
@@ -138,9 +235,11 @@ def main() -> None:
             ids, att, lab = collate(next(gen))
             loss = model(input_ids=ids, attention_mask=att, labels=lab).loss / args.grad_accum
             loss.backward()
+            w_emb.grad = None
             loss_sum += loss.item()
         torch.nn.utils.clip_grad_norm_(params, 1.0)
         opt.step()
+        sync_special_rows(model, special_ids, sp_param)
         sched.step()
         opt.zero_grad(set_to_none=True)
         rec = {"step": step, "loss": loss_sum, "lr": sched.get_last_lr()[0], "elapsed_s": round(time.time() - t0, 1),
@@ -153,7 +252,10 @@ def main() -> None:
             d = os.path.join(args.out, f"step-{step}")
             model.save_pretrained(d)
             torch.save({"opt": opt.state_dict(), "sched": sched.state_dict()}, os.path.join(d, "trainer_state.pt"))
-    model.save_pretrained(os.path.join(args.out, "final"))
+            torch.save({"ids": special_ids, "weight": sp_param.detach().cpu()}, os.path.join(d, "special_tokens.pt"))
+    final_dir = os.path.join(args.out, "final")
+    model.save_pretrained(final_dir)
+    torch.save({"ids": special_ids, "weight": sp_param.detach().cpu()}, os.path.join(final_dir, "special_tokens.pt"))
     print("done")
 
 
