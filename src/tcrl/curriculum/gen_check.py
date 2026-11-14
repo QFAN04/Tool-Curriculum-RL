@@ -27,7 +27,10 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=20261113)
     ap.add_argument("--few-shot", type=int, default=0)
     ap.add_argument("--seed-file", help="Generate from a fixed JSONL seed list in its given order")
+    ap.add_argument("--samples-per-seed", type=int, default=1)
     a = ap.parse_args()
+    if a.samples_per_seed < 1 or (a.samples_per_seed > 1 and not a.seed_file):
+        ap.error("multiple samples require a fixed seed file")
     from transformers import AutoTokenizer
     from vllm import LLM, SamplingParams
 
@@ -65,14 +68,17 @@ def main() -> None:
                                                add_generation_prompt=True, **CHAT_KWARGS))
     llm = LLM(model=a.model, gpu_memory_utilization=0.85, max_model_len=12288, seed=a.seed)
     stop = [tok.convert_tokens_to_ids("<|im_end|>"), tok.convert_tokens_to_ids("<|endoftext|>")]
-    outs = llm.generate(prompts, SamplingParams(temperature=a.temperature, max_tokens=512, stop_token_ids=stop, seed=a.seed))
+    outs = llm.generate(prompts, SamplingParams(n=a.samples_per_seed, temperature=a.temperature,
+                                               max_tokens=512, stop_token_ids=stop, seed=a.seed))
     os.makedirs(a.out, exist_ok=True)
     ok_shape = ok_ground = 0
     md = ["# D3 出题验收样本\n"]
     candidates = []
-    for i, (r, o) in enumerate(zip(sample, outs, strict=True), 1):
-        q = o.outputs[0].text.strip()
-        shape = bool(q) and "<tool_call>" not in q and o.outputs[0].finish_reason == "stop"
+    seen = set()
+    completions = ( (r, c) for r, o in zip(sample, outs, strict=True) for c in o.outputs )
+    for i, (r, completion) in enumerate(completions, 1):
+        q = completion.text.strip()
+        shape = bool(q) and "<tool_call>" not in q and completion.finish_reason == "stop"
         idx = {t["name"]: t for t in r["tools"]}
         gr = shape and all(
             grounded(c["arguments"], q, (idx[c["name"]].get("parameters") or {}).get("properties") or {},
@@ -81,8 +87,10 @@ def main() -> None:
         )
         ok_shape += shape
         ok_ground += gr
-        if a.seed_file and gr:
+        key = (r["id"], " ".join(q.casefold().split()))
+        if a.seed_file and gr and key not in seen:
             candidates.append({**r, "id": f"generated:{i}:{r['id']}", "seed_id": r["id"], "question": q})
+            seen.add(key)
         md.append(f"## {i}. 形式{'✓' if shape else '✗'} 有据{'✓' if gr else '✗'}\n\n**标准调用**：`{json.dumps(r['gold'], ensure_ascii=False)}`\n\n"
                   f"**模型写的问题**：{q}\n\n**原问题**：{r['question']}\n\n判定：\n")
     open(os.path.join(a.out, "samples.md"), "w", encoding="utf-8").write("\n".join(md))
@@ -91,6 +99,8 @@ def main() -> None:
             for row in candidates:
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
     s = {"n": len(sample), "few_shot": a.few_shot, "shape_ok": ok_shape, "grounded_ok": ok_ground}
+    if a.seed_file:
+        s.update(generation_budget=len(sample) * a.samples_per_seed, unique_candidates=len(candidates))
     json.dump(s, open(os.path.join(a.out, "summary.json"), "w"), indent=1)
     print(s)
 
