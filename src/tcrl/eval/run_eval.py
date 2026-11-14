@@ -115,7 +115,7 @@ def main() -> None:
                     from tcrl.verl_reward_graded import compute_score as graded_score
                     graded_scores.append(graded_score(
                         r["data_source"], final, r["reward_model"]["ground_truth"], ei
-                    )["score"] if final is not None and c.finish_reason != "length" else 0.0)
+                    )["score"] if final is not None else 0.0)
                 scores.append(res["score"])
                 texts.append(c.text)
                 out_tok += len(c.token_ids)

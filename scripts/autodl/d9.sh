@@ -9,7 +9,7 @@ score_python=${TCRL_BFCL_PYTHON:-python}
 p=${TCRL_PERSIST:-/root/autodl-fs/tcrl}
 out=${TCRL_D9_OUT:-/root/autodl-tmp/runs/d9}
 e0=$p/models/d3_sft_gold_disjoint_merged
-mode=${1:?choose check, probe, thinking, warmup, gate or methods}
+mode=${1:?choose check, probe, thinking, gate or methods}
 mkdir -p "$out"
 python - "$data" <<'PY'
 import hashlib, json, sys
@@ -19,14 +19,21 @@ for name, digest in json.loads((p / "manifest.json").read_text())["sha256"].item
     if hashlib.sha256((p / name).read_bytes()).hexdigest() != digest:
         raise SystemExit(f"D9 input differs: {name}")
 PY
-if [[ "$mode" != probe && "$mode" != warmup && "$mode" != gate ]]; then
+if [[ "$mode" != probe && "$mode" != gate ]]; then
     (cd "$bfcl" && sha256sum -c "$OLDPWD/scripts/autodl/d7_bfcl.sha256")
     "$score_python" -c 'from importlib.metadata import version; from bfcl_eval.eval_checker.ast_eval.ast_checker import ast_checker; assert version("bfcl-eval") == "2026.3.23"'
 fi
-case "$mode" in check) exit 0 ;; probe|thinking|warmup|gate|methods) ;; *) exit 2 ;; esac
-mkdir "$out/$mode"
+case "$mode" in check) exit 0 ;; probe|thinking|gate|methods) ;; *) exit 2 ;; esac
 work="$out/$mode"
-trap 'rc=$?; printf "%s\n" "$rc" > "$work/exit.tmp"; mv "$work/exit.tmp" "$work/exit.txt"' EXIT
+record_exit() {
+    local rc=$?
+    printf "%s\n" "$rc" > "$work/exit.tmp"
+    mv "$work/exit.tmp" "$work/exit.txt"
+}
+if [[ "$mode" != methods ]]; then
+    mkdir "$work"
+    trap record_exit EXIT
+fi
 
 eval_dev() {
     local model=$1 dataset=$2 dest=$3
@@ -79,14 +86,38 @@ if [[ "$mode" == thinking || "$mode" == probe ]]; then
     exit 0
 fi
 
-# The common warmup is allowed once; the held-out set is never used for gates.
-initial_gate="$out/thinking/gate.json"
-if [[ -s "$out/probe/gate.json" ]]; then initial_gate="$out/probe/gate.json"; fi
-test -s "$initial_gate"
-if [[ "$mode" == methods ]]; then
-    bash -n scripts/autodl/d3_rl.sh
-    test -s /root/SDPO/verl/trainer/main_ppo.py
+# Stage 2 uses the original E0 and the direct-answer protocol.
+base=$e0
+probe_opts=(--temperature 1 --top-p 1 --top-k -1 --max-tokens 512 --seed 20261118)
+eval_opts=(--temperature 0 --max-tokens 1024)
+manifest_sha=$(sha256sum "$data/manifest.json" | cut -d ' ' -f 1)
+if [[ "$mode" == gate ]]; then
+    eval_dev "$base" "$data/train.parquet" "$work/train_probe" --n 8 --graded-diagnostics "${probe_opts[@]}"
+    eval_dev "$base" "$data/gate.parquet" "$work/gate_probe" "${eval_opts[@]}"
+    python -m tcrl.eval.d9 paired --samples "$work/gate_probe/samples.jsonl" --pairs "$data/gate_pairs.jsonl" \
+        --probe "$work/train_probe/samples.jsonl" --out "$work/gate.json"
+    printf '%s\n' "$manifest_sha" > "$work/direct_e0_manifest.sha256"
+    exit 0
 fi
+
+# Require a completed direct E0 gate for this frozen dataset before any updates.
+gate="$out/gate"
+if [[ ! -s "$gate/direct_e0_manifest.sha256" || ! -s "$gate/exit.txt" ]] ||
+   [[ $(cat "$gate/direct_e0_manifest.sha256") != "$manifest_sha" || $(cat "$gate/exit.txt") != 0 ]]; then
+    echo "Run d9.sh gate first with the current frozen dataset." >&2
+    exit 2
+fi
+python - "$gate/gate.json" <<'PYTHON'
+import json, sys
+with open(sys.argv[1], encoding="utf8") as f:
+    result = json.load(f)
+if result.get("pass") is not True:
+    raise SystemExit("The direct E0 data gate did not pass.")
+PYTHON
+bash -n scripts/autodl/d3_rl.sh
+test -s /root/SDPO/verl/trainer/main_ppo.py
+mkdir "$work"
+trap record_exit EXIT
 persist="$p/runs/$(basename "$out")/methods"
 mkdir -p "$persist"
 save_adapter() {
@@ -96,87 +127,13 @@ save_adapter() {
     cp -a "$src/." "$persist/$arm/"
     diff -qr "$src" "$persist/$arm"
 }
-base=$e0
-train_sft="$data/train_thinking_sft.jsonl"
-think=(--enable-thinking)
-gate_passed() {
-    python -c 'import json,sys; value=json.load(open(sys.argv[1]))["pass"]; assert type(value) is bool; print(int(value))' "$1"
-}
-initial_pass=$(gate_passed "$initial_gate")
-if [[ "$initial_pass" == 0 ]]; then
-    warmup_result="$persist/warmup_gate.json"
-    if [[ -s "$warmup_result" ]]; then
-        test -s "$persist/warmup/adapter_model.safetensors"
-        if [[ "$mode" == warmup ]]; then
-            cp "$warmup_result" "$work/warmup_gate.json"
-            exit 0
-        fi
-        if [[ $(gate_passed "$warmup_result") != 1 ]]; then
-            cp "$warmup_result" "$work/warmup_gate.json"
-            exit 0
-        fi
-        merge "$e0" "$persist/warmup" "$work/warmed"
-    else
-        if [[ ! -e "$persist/warmup" ]]; then
-            python -m tcrl.sft.train_sft --model "$e0" --data "$data/warmup_thinking_sft.jsonl" \
-                --out "$work/warmup" --enable-thinking --lr 2e-5 --max-steps 12 --batch-size 4 --grad-accum 2
-            save_adapter "$work/warmup/final" warmup
-        fi
-        test -s "$persist/warmup/adapter_model.safetensors"
-        merge "$e0" "$persist/warmup" "$work/warmed"
-        eval_dev "$work/warmed" "$data/think_probe20.parquet" "$work/warmup_verify" --enable-thinking \
-            --temperature 0.6 --top-p 0.95 --top-k 20 --max-tokens 2048 --seed 20261118
-        python -m tcrl.eval.d9 thinking "$work/warmup_verify/summary.json" --out "$work/warmup_gate.json"
-        cp "$work/warmup_gate.json" "$warmup_result.tmp"
-        mv "$warmup_result.tmp" "$warmup_result"
-    fi
-    if [[ "$mode" == warmup ]]; then
-        rm -r -- "$work/warmed"
-        exit 0
-    fi
-    warmup_pass=$(gate_passed "$warmup_result")
-    if [[ "$warmup_pass" == 0 ]]; then
-        rm -r -- "$work/warmed"
-        exit 0
-    fi
-    base="$work/warmed"
-elif [[ "$mode" == warmup ]]; then
-    cp "$initial_gate" "$work/warmup_gate.json"
-    exit 0
-fi
-think_prefixed=$(python - "$base" <<'PY'
-import sys
-from transformers import AutoTokenizer
-t = AutoTokenizer.from_pretrained(sys.argv[1])
-p = t.apply_chat_template([{"role": "user", "content": "Check."}], tokenize=False,
-                          add_generation_prompt=True, enable_thinking=True)
-assert not p.rstrip().endswith("</think>"), "Thinking template closed the block in the prompt"
-for tag in ("<think>", "</think>", "<tool_call>", "</tool_call>"):
-    ids = t.encode(tag, add_special_tokens=False)
-    assert t.decode(ids, skip_special_tokens=True) == tag, f"verl decoder strips {tag}"
-print(int(p.rstrip().endswith("<think>")))
-PY
-)
-probe_opts=(--temperature 1 --top-p 1 --top-k -1 --max-tokens 1024 --seed 20261118)
-eval_opts=(--temperature 0.6 --top-p 0.95 --top-k 20 --max-tokens 1024)
-eval_dev "$base" "$data/train.parquet" "$work/train_probe" --n 8 --graded-diagnostics "${probe_opts[@]}" "${think[@]}"
-eval_dev "$base" "$data/gate.parquet" "$work/gate_probe" "${eval_opts[@]}" --seed 20261118 "${think[@]}"
-python -m tcrl.eval.d9 paired --samples "$work/gate_probe/samples.jsonl" --pairs "$data/gate_pairs.jsonl" \
-    --probe "$work/train_probe/samples.jsonl" --out "$work/gate.json"
-if [[ "$mode" == gate ]]; then
-    if [[ "$base" == "$work/warmed" ]]; then rm -r -- "$base"; fi
-    exit 0
-fi
-if ! python -c 'import json,sys;sys.exit(not json.load(open(sys.argv[1]))["pass"])' "$work/gate.json"; then
-    exit 0
-fi
-# Each arm schedules 22 x 32 prompt visits; RL draws eight rollouts per visit.
-# The separate SFT and RL data loading schedules need not visit the same IDs.
-steps=22
+# 30 x 32 prompt visits; GRPO draws eight rollouts per visit.
+steps=30
+lr=3e-5
 for arm in sft binary graded; do
     if [[ "$arm" == sft ]]; then
-        python -m tcrl.sft.train_sft --model "$base" --data "$train_sft" --out "$work/sft" \
-            --lr 2e-5 --max-steps "$steps" --batch-size 8 --grad-accum 4 "${think[@]}"
+        python -m tcrl.sft.train_sft --model "$base" --data "$data/train_sft.jsonl" --out "$work/sft" \
+            --lr "$lr" --max-steps "$steps" --batch-size 8 --grad-accum 4
         save_adapter "$work/sft/final" sft
         continue
     fi
@@ -185,15 +142,14 @@ for arm in sft binary graded; do
     run="d9_${arm}_$steps"
     bash scripts/autodl/d3_rl.sh grpo "$base" "$run" \
         "data.train_files=[$data/train.parquet]" "data.val_files=[$data/gate.parquet]" \
-        data.seed=20261118 data.apply_chat_template_kwargs.enable_thinking=true \
-        data.max_response_length=1024 max_model_len=5120 actor_rollout_ref.rollout.temperature=1.0 \
+        data.seed=20261118 data.apply_chat_template_kwargs.enable_thinking=false \
+        data.max_response_length=512 actor_rollout_ref.rollout.response_length=512 max_model_len=4608 actor_rollout_ref.rollout.temperature=1.0 \
         actor_rollout_ref.rollout.top_p=1.0 actor_rollout_ref.rollout.top_k=-1 \
-        trainer.total_training_steps="$steps" trainer.total_epochs=2 trainer.val_before_train=False \
+        actor_rollout_ref.actor.optim.lr="$lr" actor_rollout_ref.actor.optim.lr_scheduler_type=cosine actor_rollout_ref.actor.optim.min_lr_ratio=0.0 \
+        trainer.total_training_steps="$steps" trainer.total_epochs=2 trainer.resume_mode=disable trainer.val_before_train=False \
         trainer.test_freq=-1 trainer.save_freq="$steps" trainer.max_actor_ckpt_to_keep=1 \
         custom_reward_function.path=/root/tcrl/src/tcrl/verl_reward_d9.py custom_reward_function.name=compute_score \
-        "++custom_reward_function.reward_kwargs.graded=$graded" \
-        ++custom_reward_function.reward_kwargs.thinking=true \
-        "++custom_reward_function.reward_kwargs.prefixed=$([[ "$think_prefixed" == 1 ]] && echo true || echo false)"
+        "++custom_reward_function.reward_kwargs.graded=$graded" ++custom_reward_function.reward_kwargs.thinking=false
     adapter="/root/autodl-tmp/runs/$run/ckpt/$run/global_step_$steps/actor/lora_adapter"
     test -s "$adapter/adapter_model.safetensors"
     mkdir "$work/$arm"
@@ -211,10 +167,10 @@ for arm in base sft binary graded; do
     fi
     dest="$work/results/$arm"
     mkdir -p "$dest"
-    eval_dev "$model" "$data/heldout.parquet" "$dest/heldout" "${eval_opts[@]}" --seed 20261118 "${think[@]}"
+    eval_dev "$model" "$data/heldout.parquet" "$dest/heldout" "${eval_opts[@]}"
     python -m tcrl.eval.d9 paired --samples "$dest/heldout/samples.jsonl" --pairs "$data/heldout_pairs.jsonl" --out "$dest/paired.json"
-    eval_dev "$model" "$data/external_dev541.parquet" "$dest/dev" "${eval_opts[@]}" --seed 20261118 "${think[@]}"
-    eval_bfcl "$model" "$dest/bfcl" "${eval_opts[@]}" "${think[@]}"
+    eval_dev "$model" "$data/external_dev541.parquet" "$dest/dev" "${eval_opts[@]}"
+    eval_bfcl "$model" "$dest/bfcl" "${eval_opts[@]}"
     python - "$dest/bfcl.score.json" "$data/bfcl_miss78.ids" "$dest/bfcl_miss78.json" <<'PYTHON'
 import json, sys
 from pathlib import Path

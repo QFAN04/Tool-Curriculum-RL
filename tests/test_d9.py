@@ -130,6 +130,22 @@ def test_three_calls_create_graded_signal_on_strict_all_wrong_group():
     assert graded_signal([detail])["graded_signal_on_binary_all_wrong"] == 1
 
 
+
+def test_direct_answer_rewards_measure_partial_calls_without_think():
+    row = next(synthetic())
+    gold = row["gold"]
+    expected = json.dumps(gold)
+    info = {"tools_json": json.dumps(row["tools"])}
+    strict = [compute_score("tcrl", render_calls(gold[:n]), expected, info)["score"] for n in (1, 2, 3)]
+    graded = [compute_score("tcrl", render_calls(gold[:n]), expected, info, graded=True)["score"]
+              for n in (1, 2, 3)]
+    assert strict == [0, 0, 1]
+    assert graded == pytest.approx([0.50, 0.80, 1.0])
+    rows = [{"kind": "call", "scores": [0] * 8, "graded_scores": graded[:2] * 4}]
+    assert graded_signal(rows)["binary_all_wrong_groups"] == 1
+    assert graded_signal(rows)["graded_signal_on_binary_all_wrong"] == 1
+
+
 def test_d9_cli_accepts_output_after_subcommand(tmp_path, monkeypatch):
     from tcrl.eval.d9 import main
 

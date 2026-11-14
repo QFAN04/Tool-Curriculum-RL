@@ -40,6 +40,8 @@ def graded_signal(samples):
     spread = [max(g) - min(g) > 1e-9 for g in graded_groups]
     return {
         "call_groups": len(calls),
+        "binary_all_wrong_groups": sum(not any(row["scores"]) for row in calls),
+        "binary_all_right_groups": sum(all(row["scores"]) for row in calls),
         "graded_nonconstant_groups": sum(spread),
         "graded_signal_on_binary_all_wrong": sum(active and not any(row["scores"])
                                                  for active, row in zip(spread, calls, strict=True)),
