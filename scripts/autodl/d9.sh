@@ -9,7 +9,7 @@ score_python=${TCRL_BFCL_PYTHON:-python}
 p=${TCRL_PERSIST:-/root/autodl-fs/tcrl}
 out=${TCRL_D9_OUT:-/root/autodl-tmp/runs/d9}
 e0=$p/models/d3_sft_gold_disjoint_merged
-mode=${1:?choose check, probe, thinking, warmup or methods}
+mode=${1:?choose check, probe, thinking, warmup, gate or methods}
 mkdir -p "$out"
 python - "$data" <<'PY'
 import hashlib, json, sys
@@ -19,11 +19,11 @@ for name, digest in json.loads((p / "manifest.json").read_text())["sha256"].item
     if hashlib.sha256((p / name).read_bytes()).hexdigest() != digest:
         raise SystemExit(f"D9 input differs: {name}")
 PY
-if [[ "$mode" != probe && "$mode" != warmup ]]; then
+if [[ "$mode" != probe && "$mode" != warmup && "$mode" != gate ]]; then
     (cd "$bfcl" && sha256sum -c "$OLDPWD/scripts/autodl/d7_bfcl.sha256")
     "$score_python" -c 'from importlib.metadata import version; from bfcl_eval.eval_checker.ast_eval.ast_checker import ast_checker; assert version("bfcl-eval") == "2026.3.23"'
 fi
-case "$mode" in check) exit 0 ;; probe|thinking|warmup|methods) ;; *) exit 2 ;; esac
+case "$mode" in check) exit 0 ;; probe|thinking|warmup|gate|methods) ;; *) exit 2 ;; esac
 mkdir "$out/$mode"
 work="$out/$mode"
 trap 'rc=$?; printf "%s\n" "$rc" > "$work/exit.tmp"; mv "$work/exit.tmp" "$work/exit.txt"' EXIT
@@ -119,7 +119,7 @@ if [[ "$initial_pass" == 0 ]]; then
     else
         if [[ ! -e "$persist/warmup" ]]; then
             python -m tcrl.sft.train_sft --model "$e0" --data "$data/warmup_thinking_sft.jsonl" \
-            --out "$work/warmup" --enable-thinking --lr 2e-5 --max-steps 12 --batch-size 4 --grad-accum 2
+                --out "$work/warmup" --enable-thinking --lr 2e-5 --max-steps 12 --batch-size 4 --grad-accum 2
             save_adapter "$work/warmup/final" warmup
         fi
         test -s "$persist/warmup/adapter_model.safetensors"
@@ -130,9 +130,15 @@ if [[ "$initial_pass" == 0 ]]; then
         cp "$work/warmup_gate.json" "$warmup_result.tmp"
         mv "$warmup_result.tmp" "$warmup_result"
     fi
-    if [[ "$mode" == warmup ]]; then exit 0; fi
+    if [[ "$mode" == warmup ]]; then
+        rm -r -- "$work/warmed"
+        exit 0
+    fi
     warmup_pass=$(gate_passed "$warmup_result")
-    if [[ "$warmup_pass" == 0 ]]; then exit 0; fi
+    if [[ "$warmup_pass" == 0 ]]; then
+        rm -r -- "$work/warmed"
+        exit 0
+    fi
     base="$work/warmed"
 elif [[ "$mode" == warmup ]]; then
     cp "$initial_gate" "$work/warmup_gate.json"
@@ -157,6 +163,10 @@ eval_dev "$base" "$data/train.parquet" "$work/train_probe" --n 8 --graded-diagno
 eval_dev "$base" "$data/gate.parquet" "$work/gate_probe" "${eval_opts[@]}" --seed 20261118 "${think[@]}"
 python -m tcrl.eval.d9 paired --samples "$work/gate_probe/samples.jsonl" --pairs "$data/gate_pairs.jsonl" \
     --probe "$work/train_probe/samples.jsonl" --out "$work/gate.json"
+if [[ "$mode" == gate ]]; then
+    if [[ "$base" == "$work/warmed" ]]; then rm -r -- "$base"; fi
+    exit 0
+fi
 if ! python -c 'import json,sys;sys.exit(not json.load(open(sys.argv[1]))["pass"])' "$work/gate.json"; then
     exit 0
 fi
