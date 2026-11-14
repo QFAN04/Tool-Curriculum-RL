@@ -20,7 +20,7 @@ if [[ ${1:-} == --check ]]; then
 fi
 test ! -e "$out/train.log"
 bash scripts/autodl/d4_grpo.sh "$run" \
-    custom_reward_function.path=/root/tcrl/src/tcrl/verl_reward_graded.py
+    custom_reward_function.path=/root/tcrl/src/tcrl/verl_reward_graded.py trainer.max_actor_ckpt_to_keep=1
 adapter="$out/ckpt/$run/global_step_30/actor/lora_adapter"
 dest="$persist/runs/$run/lora_adapter"
 test -s "$adapter/adapter_model.safetensors"
