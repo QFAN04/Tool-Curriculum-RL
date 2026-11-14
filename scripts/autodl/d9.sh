@@ -9,7 +9,7 @@ score_python=${TCRL_BFCL_PYTHON:-python}
 p=${TCRL_PERSIST:-/root/autodl-fs/tcrl}
 out=${TCRL_D9_OUT:-/root/autodl-tmp/runs/d9}
 e0=$p/models/d3_sft_gold_disjoint_merged
-mode=${1:?choose check, thinking or methods}
+mode=${1:?choose check, probe, thinking or methods}
 mkdir -p "$out"
 python - "$data" <<'PY'
 import hashlib, json, sys
@@ -19,9 +19,11 @@ for name, digest in json.loads((p / "manifest.json").read_text())["sha256"].item
     if hashlib.sha256((p / name).read_bytes()).hexdigest() != digest:
         raise SystemExit(f"D9 input differs: {name}")
 PY
-(cd "$bfcl" && sha256sum -c "$OLDPWD/scripts/autodl/d7_bfcl.sha256")
-"$score_python" -c 'from importlib.metadata import version; from bfcl_eval.eval_checker.ast_eval.ast_checker import ast_checker; assert version("bfcl-eval") == "2026.3.23"'
-case "$mode" in check) exit 0 ;; thinking|methods) ;; *) exit 2 ;; esac
+if [[ "$mode" != probe ]]; then
+    (cd "$bfcl" && sha256sum -c "$OLDPWD/scripts/autodl/d7_bfcl.sha256")
+    "$score_python" -c 'from importlib.metadata import version; from bfcl_eval.eval_checker.ast_eval.ast_checker import ast_checker; assert version("bfcl-eval") == "2026.3.23"'
+fi
+case "$mode" in check) exit 0 ;; probe|thinking|methods) ;; *) exit 2 ;; esac
 mkdir "$out/$mode"
 work="$out/$mode"
 trap 'rc=$?; printf "%s\n" "$rc" > "$work/exit.tmp"; mv "$work/exit.tmp" "$work/exit.txt"' EXIT
@@ -44,7 +46,7 @@ merge() {
     python -m tcrl.sft.train_sft --model "$1" --merge "$2" --out "$3"
 }
 
-if [[ "$mode" == thinking ]]; then
+if [[ "$mode" == thinking || "$mode" == probe ]]; then
     mkdir "$work/x2" "$work/e0"
     opts=(--temperature 0.6 --top-p 0.95 --top-k 20 --max-tokens 2048 --seed 20261118)
     merge "$e0" "$p/runs/d8_x2_graded_30step/lora_adapter" "$work/x2/merged"
@@ -54,7 +56,7 @@ if [[ "$mode" == thinking ]]; then
         eval_dev "$model" "$data/think_probe20.parquet" "$work/$arm/probe" "${opts[@]}" --enable-thinking
     done
     python -m tcrl.eval.d9 thinking "$work/e0/probe/summary.json" "$work/x2/probe/summary.json" --out "$work/gate.json"
-    if ! python -c 'import json,sys;sys.exit(not json.load(open(sys.argv[1]))["pass"])' "$work/gate.json"; then
+    if [[ "$mode" == probe ]] || ! python -c 'import json,sys;sys.exit(not json.load(open(sys.argv[1]))["pass"])' "$work/gate.json"; then
         rm -r -- "$work/x2/merged"
         exit 0
     fi
@@ -78,7 +80,9 @@ if [[ "$mode" == thinking ]]; then
 fi
 
 # The common warmup is allowed once; the held-out set is never used for gates.
-test -s "$out/thinking/gate.json"
+initial_gate="$out/thinking/gate.json"
+if [[ -s "$out/probe/gate.json" ]]; then initial_gate="$out/probe/gate.json"; fi
+test -s "$initial_gate"
 bash -n scripts/autodl/d3_rl.sh
 test -s /root/SDPO/verl/trainer/main_ppo.py
 persist="$p/runs/$(basename "$out")/methods"
@@ -93,7 +97,7 @@ save_adapter() {
 base=$e0
 train_sft="$data/train_thinking_sft.jsonl"
 think=(--enable-thinking)
-if ! python -c 'import json,sys;sys.exit(not json.load(open(sys.argv[1]))["pass"])' "$out/thinking/gate.json"; then
+if ! python -c 'import json,sys;sys.exit(not json.load(open(sys.argv[1]))["pass"])' "$initial_gate"; then
     python -m tcrl.sft.train_sft --model "$e0" --data "$data/warmup_thinking_sft.jsonl" \
         --out "$work/warmup" --enable-thinking --lr 2e-5 --max-steps 12 --batch-size 4 --grad-accum 2
     save_adapter "$work/warmup/final" warmup
