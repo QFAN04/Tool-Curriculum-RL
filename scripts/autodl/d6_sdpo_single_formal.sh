@@ -5,7 +5,7 @@ export PATH=/root/miniconda3/bin:$PATH PYTHONPATH=/root/tcrl/src
 p=/root/autodl-fs/tcrl
 r=/root/autodl-tmp/runs
 mode=${1:-preflight}
-case "$mode" in preflight|formal) ;; *) exit 2 ;; esac
+case "$mode" in preflight|formal|gold_only) ;; *) exit 2 ;; esac
 status=$r/d6_single_$mode
 model=$p/models/d3_sft_gold_disjoint_merged
 pool=$p/data/processed/gold_disjoint/export/rl_targeted.parquet
@@ -36,13 +36,12 @@ if [ "$mode" = preflight ]; then
     exit 0
 fi
 
-for arm in e2a e2b; do
-    gold=0
-    if [ "$arm" = e2b ]; then gold=1; fi
-    run=d6_single_${arm}_30step
+run_arm() {
+    local run=$1 gold=$2
+    shift 2
     train "$run" "$gold" 30 trainer.val_before_train=True trainer.test_freq=10 \
         trainer.save_freq=30 trainer.max_actor_ckpt_to_keep=1 \
-        "trainer.validation_data_dir=$r/$run/validation"
+        "trainer.validation_data_dir=$r/$run/validation" "$@"
     adapter=$r/$run/ckpt/$run/global_step_30/actor/lora_adapter
     dest=$p/runs/$run
     mkdir -p "$dest"
@@ -53,4 +52,11 @@ for arm in e2a e2b; do
     python -m tcrl.eval.run_eval --model "$merged" --data "$dev" --out "$r/$run/independent_dev"
     # The verified adapter reproduces the model. Release the merged copy before the next arm.
     rm -r -- "$merged"
-done
+}
+
+if [ "$mode" = gold_only ]; then
+    run_arm d6_single_gold_only_30step 1 actor_rollout_ref.actor.self_distillation.success_reward_threshold=2.0
+else
+    run_arm d6_single_e2a_30step 0
+    run_arm d6_single_e2b_30step 1
+fi
