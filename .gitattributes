@@ -1,1 +1,3 @@
 scripts/autodl/d7_bfcl.sha256 text eol=lf
+scripts/autodl/d4_grpo.sh text eol=lf
+scripts/autodl/d8_*.sh text eol=lf

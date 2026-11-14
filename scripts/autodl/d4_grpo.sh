@@ -8,6 +8,7 @@ pool=$persist/data/processed/gold_disjoint/export/rl_targeted.parquet
 dev=/root/tcrl/data/processed/export/dev.parquet
 run=${1:-d4_grpo_targeted_30step}
 out=/root/autodl-tmp/runs/$run
+if (( $# )); then shift; fi
 
 test -s "$model/model.safetensors.index.json"
 sha256sum --check <<EOF
@@ -21,4 +22,4 @@ exec bash scripts/autodl/d3_rl.sh grpo "$model" "$run" \
     actor_rollout_ref.rollout.top_p=1.0 actor_rollout_ref.rollout.top_k=-1 \
     trainer.total_training_steps=30 trainer.val_before_train=True \
     trainer.test_freq=10 trainer.save_freq=10 trainer.max_actor_ckpt_to_keep=2 \
-    "trainer.rollout_data_dir=$out/rollouts" "trainer.validation_data_dir=$out/validation"
+    "trainer.rollout_data_dir=$out/rollouts" "trainer.validation_data_dir=$out/validation" "$@"

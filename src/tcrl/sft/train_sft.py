@@ -127,6 +127,16 @@ def merge(args) -> None:
     print("merged ->", args.out)
 
 
+def restart_tail_schedule(optimizer, lr: float):
+    """Resume optimizer moments at a fixed positive LR after cosine decay."""
+    from torch.optim.lr_scheduler import LambdaLR
+
+    for group in optimizer.param_groups:
+        group["lr"] = group["initial_lr"] = lr
+    return LambdaLR(optimizer, lambda _: 1.0)
+
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True)
@@ -144,7 +154,10 @@ def main() -> None:
     ap.add_argument("--max-steps", type=int, default=-1)
     ap.add_argument("--seed", type=int, default=20261113)
     ap.add_argument("--resume", action="store_true")
+    ap.add_argument("--tail-lr", type=float, help="Resume with a constant positive LR, preserving optimizer moments")
     args = ap.parse_args()
+    if args.tail_lr is not None and (not args.resume or args.tail_lr <= 0 or args.max_steps <= 0):
+        ap.error("--tail-lr requires --resume, a positive learning rate and explicit --max-steps")
     if args.merge:
         return merge(args)
 
@@ -182,6 +195,8 @@ def main() -> None:
         ),
         key=lambda d: int(d.split("-")[1]),
     )
+    if args.tail_lr is not None and (not ckpts or int(ckpts[-1].split("-")[1]) >= total):
+        ap.error("--tail-lr requires a complete checkpoint before --max-steps")
     resume_sp_weight = None
     if args.resume and ckpts:
         sp = torch.load(os.path.join(args.out, ckpts[-1], "special_tokens.pt"), map_location="cpu", weights_only=True)
@@ -202,7 +217,10 @@ def main() -> None:
     if state and os.path.exists(state):
         st = torch.load(state)
         opt.load_state_dict(st["opt"])
-        sched.load_state_dict(st["sched"])
+        if args.tail_lr is None:
+            sched.load_state_dict(st["sched"])
+        else:
+            sched = restart_tail_schedule(opt, args.tail_lr)
 
     def batches():
         rng = random.Random(args.seed)
