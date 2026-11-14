@@ -139,7 +139,7 @@ def first_paragraph(text: str) -> str:
     return p[:MAX_REFUSAL_CHARS]
 
 
-def convert(row: dict, stats: collections.Counter) -> dict | None:
+def convert(row: dict, stats: collections.Counter, *, require_grounded: bool = True) -> dict | None:
     msgs = json.loads(row["messages"])
     tools = [t["function"] for t in json.loads(row["tools"])]
     if len(row["tools"]) + len(row["question"]) > MAX_PROMPT_CHARS:
@@ -190,7 +190,7 @@ def convert(row: dict, stats: collections.Counter) -> dict | None:
             stats["drop_gold_invalid"] += 1
             return None
         params = idx[c["name"]].get("parameters") or {}
-        if not grounded(c["arguments"], question, params.get("properties") or {}, params.get("required") or ()):
+        if require_grounded and not grounded(c["arguments"], question, params.get("properties") or {}, params.get("required") or ()):
             stats["drop_ungrounded"] += 1
             return None
         if not operands_in_mention_order(c, idx[c["name"]], question):

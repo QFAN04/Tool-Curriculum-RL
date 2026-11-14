@@ -8,6 +8,7 @@ from pathlib import Path
 
 from tcrl.prompts import CHAT_KWARGS, solve_messages
 from tcrl.tool_env import TOOL_CALL_RE, parse_tool_calls
+from tcrl.thinking import thinking_stats, unpack_completion
 
 CATEGORIES = ("simple", "multiple", "parallel", "parallel_multiple", "irrelevance")
 BFCL_VERSION = "2026.3.23"
@@ -92,6 +93,11 @@ def generate(args):
     from vllm import LLM, SamplingParams
 
     entries = list(dataset(args.data))
+    if args.ids:
+        ids = set(args.ids.read_text(encoding="utf8").splitlines())
+        entries = [entry for entry in entries if entry[1]["id"] in ids]
+        if not ids or len(entries) != len(ids):
+            raise ValueError("Unknown or empty BFCL ID selection")
     if args.limit:
         entries = entries[:args.limit]
     tok = AutoTokenizer.from_pretrained(args.model)
@@ -109,18 +115,25 @@ def generate(args):
             messages = messages[:1] + shots + messages[1:]
         kwargs = {"tools": [{"type": "function", "function": tool} for tool in tools]} if args.native else {}
         prompts.append(tok.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True, **CHAT_KWARGS, **kwargs,
+            messages, tokenize=False, add_generation_prompt=True, **{**CHAT_KWARGS, 'enable_thinking': args.enable_thinking}, **kwargs,
         ))
     llm = LLM(model=args.model, enable_prefix_caching=True, max_model_len=12288, seed=20261114)
     outputs = llm.generate(prompts, SamplingParams(
-        temperature=0, max_tokens=1024, seed=20261114,
+        temperature=args.temperature, top_p=args.top_p, top_k=args.top_k, max_tokens=args.max_tokens, seed=20261114,
+        skip_special_tokens=not args.enable_thinking,
         stop_token_ids=[tok.convert_tokens_to_ids(tag) for tag in ("<|im_end|>", "<|endoftext|>")],
     ))
     with args.out.open("x", encoding="utf8") as handle:
-        for (_, row, _), output in zip(entries, outputs, strict=True):
+        for (_, row, _), output, prompt in zip(entries, outputs, prompts, strict=True):
             completion, = output.outputs
+            truncated = completion.finish_reason == "length"
+            final = completion.text
+            metrics = {}
+            if args.enable_thinking:
+                final, detail = unpack_completion(final, tok, prompt, truncated)
+                metrics = {"thinking": detail, "final": final}
             handle.write(json.dumps({
-                "id": row["id"], "text": completion.text, "truncated": completion.finish_reason == "length",
+                "id": row["id"], "text": completion.text, "truncated": truncated, **metrics,
             }, ensure_ascii=False) + "\n")
 
 
@@ -130,6 +143,11 @@ def evaluate(args):
     rows = read(args.predictions)
     outputs = {row["id"]: row for row in rows}
     entries = list(dataset(args.data))
+    if args.ids:
+        ids = set(args.ids.read_text(encoding="utf8").splitlines())
+        entries = [entry for entry in entries if entry[1]["id"] in ids]
+        if not ids or len(entries) != len(ids):
+            raise ValueError("Unknown or empty BFCL ID selection")
     if args.limit:
         entries = entries[:args.limit]
     if len(outputs) != len(rows) or outputs.keys() != {row["id"] for _, row, _ in entries}:
@@ -138,7 +156,8 @@ def evaluate(args):
     details = []
     for category, row, gold in entries:
         output = outputs[row["id"]]
-        valid = bool(score(category, row, gold, output["text"], output["truncated"]))
+        final = output.get("final", output["text"])
+        valid = final is not None and bool(score(category, row, gold, final, output["truncated"]))
         counts[category] += 1
         correct[category] += valid
         details.append({"id": row["id"], "category": category, "correct": valid})
@@ -147,6 +166,9 @@ def evaluate(args):
     total = sum(counts.values())
     payload = {"all": {"n": total, "correct": sum(correct.values()), "accuracy": sum(correct.values()) / total},
                "categories": summary, "samples": details}
+    if rows and all("thinking" in row for row in rows):
+        payload["thinking"] = thinking_stats([row["thinking"] for row in rows])
+        payload["truncated_fraction"] = sum(row["truncated"] for row in rows) / len(rows)
     args.out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf8")
 
 
@@ -159,9 +181,15 @@ def main():
         sub.add_argument("--data", type=Path, required=True)
         sub.add_argument("--out", type=Path, required=True)
         sub.add_argument("--limit", type=int)
+        sub.add_argument("--ids", type=Path)
         if command == "generate":
             sub.add_argument("--model", required=True)
             sub.add_argument("--native", action="store_true")
+            sub.add_argument("--enable-thinking", action="store_true")
+            sub.add_argument("--temperature", type=float, default=0)
+            sub.add_argument("--top-p", type=float, default=1)
+            sub.add_argument("--top-k", type=int, default=-1)
+            sub.add_argument("--max-tokens", type=int, default=1024)
             sub.add_argument("--few-shot-data", type=Path)
         else:
             sub.add_argument("--predictions", type=Path, required=True)

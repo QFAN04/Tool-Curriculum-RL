@@ -23,6 +23,7 @@ import pyarrow.parquet as pq
 
 from tcrl.prompts import CHAT_KWARGS
 from tcrl.reward import compute_score
+from tcrl.thinking import thinking_stats, unpack_completion
 
 
 def main() -> None:
@@ -42,7 +43,10 @@ def main() -> None:
     ap.add_argument("--few-shot-data", default="data/processed/export/sft_train.jsonl")
     ap.add_argument("--native-tools", action="store_true",
                     help="官方 Instruct 基线用：不用我们的 system 提示，改用模型自带对话模板的 tools= 参数（它训练时见过的格式）")
+    ap.add_argument("--enable-thinking", action="store_true")
+    ap.add_argument("--top-k", type=int, default=-1)
     a = ap.parse_args()
+    chat_kwargs = {**CHAT_KWARGS, "enable_thinking": a.enable_thinking}
     if a.max_tokens is None:
         a.max_tokens = 512 if a.n > 1 else 1024
 
@@ -52,6 +56,8 @@ def main() -> None:
     rows = pq.read_table(a.data).to_pylist()
     if a.limit:
         rows = rows[: a.limit]
+    if not rows:
+        ap.error("empty evaluation data")
     tok = AutoTokenizer.from_pretrained(a.model)
     shots = []
     if a.few_shot:
@@ -64,10 +70,10 @@ def main() -> None:
         if a.native_tools:
             tools = [{"type": "function", "function": t} for t in json.loads(r["extra_info"]["tools_json"])]
             return tok.apply_chat_template(r["prompt"][1:], tools=tools, tokenize=False, add_generation_prompt=True,
-                                           **CHAT_KWARGS)
+                                           **chat_kwargs)
         msgs = list(r["prompt"])
         msgs = msgs[:1] + shots + msgs[1:]
-        return tok.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True, **CHAT_KWARGS)
+        return tok.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True, **chat_kwargs)
 
     prompts = [render(r) for r in rows]
     input_count = len(rows)
@@ -81,8 +87,8 @@ def main() -> None:
         rows, prompts = map(list, zip(*eligible))
     stop_ids = [tok.convert_tokens_to_ids("<|im_end|>"), tok.convert_tokens_to_ids("<|endoftext|>")]
     llm = LLM(model=a.model, gpu_memory_utilization=a.gpu_mem, max_model_len=12288, seed=a.seed, enable_prefix_caching=True)
-    sp = SamplingParams(n=a.n, temperature=a.temperature, top_p=a.top_p, max_tokens=a.max_tokens,
-                        stop_token_ids=stop_ids, seed=a.seed)
+    sp = SamplingParams(n=a.n, temperature=a.temperature, top_p=a.top_p, top_k=a.top_k, max_tokens=a.max_tokens,
+                        stop_token_ids=stop_ids, seed=a.seed, skip_special_tokens=not a.enable_thinking)
     t0 = time.time()
     outs = llm.generate(prompts, sp)
     gen_s = time.time() - t0
@@ -91,13 +97,19 @@ def main() -> None:
     by = collections.defaultdict(list)
     groups = collections.Counter(all_wrong=0, mixed=0, all_right=0)
     out_tok, truncated, fmt_err = 0, 0, 0
+    thinking = []
     with open(os.path.join(a.out, "samples.jsonl"), "w", encoding="utf-8") as f:
-        for r, o in zip(rows, outs):
+        for r, o, prompt in zip(rows, outs, prompts, strict=True):
             ei = r["extra_info"]
             tools = json.loads(ei["tools_json"])
             scores, texts = [], []
             for c in o.outputs:
-                res = compute_score(c.text, r["reward_model"]["ground_truth"], tools)
+                final = c.text
+                if a.enable_thinking:
+                    final, metrics = unpack_completion(c.text, tok, prompt, c.finish_reason == "length")
+                    thinking.append(metrics)
+                res = (compute_score(final, r["reward_model"]["ground_truth"], tools)
+                       if final is not None else {"score": 0, "incorrect_format": 1})
                 scores.append(res["score"])
                 texts.append(c.text)
                 out_tok += len(c.token_ids)
@@ -111,7 +123,8 @@ def main() -> None:
                 by[f"{ei['split']}|gold_seen_in_train={ei['gold_seen_in_train']}"].append(acc)
             groups["all_right" if acc == 1 else "all_wrong" if acc == 0 else "mixed"] += 1
             f.write(json.dumps({"id": ei["id"], "split": ei["split"], "kind": ei["kind"], "gold": r["reward_model"]["ground_truth"],
-                                "outputs": texts, "scores": scores}, ensure_ascii=False) + "\n")
+                                "outputs": texts, "scores": scores,
+                                **({"thinking": thinking[-len(scores):]} if a.enable_thinking else {})}, ensure_ascii=False) + "\n")
     n_out = sum(len(o.outputs) for o in outs)
     summary = {
         "model": a.model, "data": a.data, "n": a.n, "temperature": a.temperature, "few_shot": a.few_shot, "native_tools": a.native_tools,
@@ -128,6 +141,10 @@ def main() -> None:
         "format_error_fraction": round(fmt_err / n_out, 4),
         "generate_seconds": round(gen_s, 1),
     }
+    if a.enable_thinking:
+        summary["thinking"] = thinking_stats(thinking)
+    summary["enable_thinking"] = a.enable_thinking
+    summary["top_k"] = a.top_k
     if a.n > 1:
         pass_at_1 = sum(by["all"]) / len(rows)
         pass_at_n = 1 - groups["all_wrong"] / len(rows)

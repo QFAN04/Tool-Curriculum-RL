@@ -84,13 +84,19 @@ def sync_special_rows(model, special_ids: list[int], sp_param) -> None:
         w[sp_ids] = sp_param.to(dtype=w.dtype, device=w.device)
 
 
-def build_example(tokenizer, messages: list[dict], max_len: int):
+def build_example(tokenizer, messages: list[dict], max_len: int, enable_thinking=False):
     """返回 (input_ids, labels)。提示部分用模板渲染到「该 assistant 开口」为止，答案部分单独编码后接上结束符。"""
     from tcrl.prompts import CHAT_KWARGS
 
-    prompt = tokenizer.apply_chat_template(messages[:-1], tokenize=False, add_generation_prompt=True, **CHAT_KWARGS)
+    prompt = tokenizer.apply_chat_template(messages[:-1], tokenize=False, add_generation_prompt=True, **{**CHAT_KWARGS, 'enable_thinking': enable_thinking})
     p_ids = tokenizer(prompt, add_special_tokens=False)["input_ids"]
-    a_ids = tokenizer(messages[-1]["content"] + "<|im_end|>", add_special_tokens=False)["input_ids"]
+    target = messages[-1]["content"]
+    if enable_thinking:
+        from tcrl.thinking import thinking_target
+        target = thinking_target(target, prompt)
+    a_ids = tokenizer(target + "<|im_end|>", add_special_tokens=False)["input_ids"]
+    if enable_thinking and len(p_ids) + len(a_ids) > max_len:
+        return [], []
     ids = (p_ids + a_ids)[:max_len]
     labels = ([-100] * len(p_ids) + a_ids)[:max_len]
     return ids, labels
@@ -155,6 +161,7 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=20261113)
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--tail-lr", type=float, help="Resume with a constant positive LR, preserving optimizer moments")
+    ap.add_argument("--enable-thinking", action="store_true")
     args = ap.parse_args()
     if args.tail_lr is not None and (not args.resume or args.tail_lr <= 0 or args.max_steps <= 0):
         ap.error("--tail-lr requires --resume, a positive learning rate and explicit --max-steps")
@@ -174,7 +181,7 @@ def main() -> None:
     rows = [json.loads(x) for x in open(args.data, encoding="utf-8")]
     data, dropped = [], 0
     for r in rows:
-        ids, labels = build_example(tok, r["messages"], args.max_len)
+        ids, labels = build_example(tok, r["messages"], args.max_len, args.enable_thinking)
         if all(x == -100 for x in labels):  # 提示本身就超长，答案被截没了
             dropped += 1
             continue
