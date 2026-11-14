@@ -26,13 +26,25 @@ def main() -> None:
     ap.add_argument("--temperature", type=float, default=0.7)
     ap.add_argument("--seed", type=int, default=20261113)
     ap.add_argument("--few-shot", type=int, default=0)
+    ap.add_argument("--seed-file", help="Generate from a fixed JSONL seed list in its given order")
     a = ap.parse_args()
     from transformers import AutoTokenizer
     from vllm import LLM, SamplingParams
 
     recs = [json.loads(x) for x in open(f"{a.splits}/rl.jsonl", encoding="utf-8")]
     recs = [r for r in recs if r["kind"] == "call" and any(c["arguments"] for c in r["gold"])]
-    sample = random.Random(a.seed).sample(recs, a.n)
+    if a.seed_file:
+        with open(a.seed_file, encoding="utf-8") as f:
+            sample = list(map(json.loads, f))
+        training = {r["id"]: r for r in recs}
+        if not sample or any(
+            r["id"] not in training
+            or any(r[k] != training[r["id"]][k] for k in ("question", "tools", "gold"))
+            for r in sample
+        ):
+            ap.error("fixed seeds must match call records from the training split")
+    else:
+        sample = random.Random(a.seed).sample(recs, a.n)
     tok = AutoTokenizer.from_pretrained(a.model)
     shots = []
     if a.few_shot:
@@ -57,7 +69,8 @@ def main() -> None:
     os.makedirs(a.out, exist_ok=True)
     ok_shape = ok_ground = 0
     md = ["# D3 出题验收样本\n"]
-    for i, (r, o) in enumerate(zip(sample, outs), 1):
+    candidates = []
+    for i, (r, o) in enumerate(zip(sample, outs, strict=True), 1):
         q = o.outputs[0].text.strip()
         shape = bool(q) and "<tool_call>" not in q and o.outputs[0].finish_reason == "stop"
         idx = {t["name"]: t for t in r["tools"]}
@@ -68,10 +81,16 @@ def main() -> None:
         )
         ok_shape += shape
         ok_ground += gr
+        if a.seed_file and gr:
+            candidates.append({**r, "id": f"generated:{i}:{r['id']}", "seed_id": r["id"], "question": q})
         md.append(f"## {i}. 形式{'✓' if shape else '✗'} 有据{'✓' if gr else '✗'}\n\n**标准调用**：`{json.dumps(r['gold'], ensure_ascii=False)}`\n\n"
                   f"**模型写的问题**：{q}\n\n**原问题**：{r['question']}\n\n判定：\n")
     open(os.path.join(a.out, "samples.md"), "w", encoding="utf-8").write("\n".join(md))
-    s = {"n": a.n, "few_shot": a.few_shot, "shape_ok": ok_shape, "grounded_ok": ok_ground}
+    if a.seed_file:
+        with open(os.path.join(a.out, "candidates.jsonl"), "w", encoding="utf-8") as f:
+            for row in candidates:
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    s = {"n": len(sample), "few_shot": a.few_shot, "shape_ok": ok_shape, "grounded_ok": ok_ground}
     json.dump(s, open(os.path.join(a.out, "summary.json"), "w"), indent=1)
     print(s)
 
