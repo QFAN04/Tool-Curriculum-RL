@@ -9,6 +9,8 @@ f=runs/d7_curriculum_frozen
 dev=data/processed/export/dev.parquet
 target=data/processed/gold_disjoint/export/rl_targeted.parquet
 seeds=runs/d7_curriculum
+bfcl=${TCRL_BFCL_DATA:-$PWD/runs/bfcl_data}
+score_python=${TCRL_BFCL_PYTHON:-python}
 mkdir -p "$r"
 trap 'rc=$?; printf "%s\n" "$rc" > "$r/exit.tmp"; mv "$r/exit.tmp" "$r/exit.txt"' EXIT
 sha256sum -c <<EOF
@@ -23,6 +25,8 @@ EOF
 for file in "$target" "$seeds/cu_pilot_seeds.jsonl" "$seeds/cf_pilot_seeds.jsonl" "$base/config.json"; do
     test -s "$file"
 done
+(cd "$bfcl" && sha256sum -c "$OLDPWD/scripts/autodl/d7_bfcl.sha256")
+"$score_python" -c 'from importlib.metadata import version; from bfcl_eval.eval_checker.ast_eval.ast_checker import ast_checker; assert version("bfcl-eval") == "2026.3.23"'
 if [[ ${1:-} == --check ]]; then exit 0; fi
 if [[ -e "$r/cs" || -e "$r/cu" || -e "$r/cf" ]]; then
     echo "Use a new TCRL_D7_OUT for a fresh run" >&2
@@ -43,6 +47,8 @@ for arm in cs cu cf; do
         python -m tcrl.eval.run_eval --model "$run/merged" --data "$target" --out "$run/probe" \
             --n 8 --temperature 1.0 --seed 20261114
     fi
+    python -m tcrl.eval.bfcl generate --data "$bfcl" --model "$run/merged" --out "$run/bfcl.jsonl"
+    "$score_python" -m tcrl.eval.bfcl score --data "$bfcl" --predictions "$run/bfcl.jsonl" --out "$run/bfcl.score.json"
     rm -r -- "$run/merged"
 done
 python -m tcrl.curriculum.probe_strata --target "$target" \
