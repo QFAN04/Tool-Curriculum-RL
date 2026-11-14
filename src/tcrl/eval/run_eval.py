@@ -46,7 +46,10 @@ def main() -> None:
     ap.add_argument("--enable-thinking", action="store_true")
     ap.add_argument("--top-k", type=int, default=-1)
     ap.add_argument("--graded-diagnostics", action="store_true")
+    ap.add_argument("--also-sample-eight-to", help="Reuse the greedy engine for the fixed D12 n=8 decode")
     a = ap.parse_args()
+    if a.also_sample_eight_to and (a.n != 1 or a.temperature != 0 or a.enable_thinking):
+        ap.error("--also-sample-eight-to requires direct greedy decoding")
     chat_kwargs = {**CHAT_KWARGS, "enable_thinking": a.enable_thinking}
     if a.max_tokens is None:
         a.max_tokens = 512 if a.n > 1 else 1024
@@ -88,7 +91,15 @@ def main() -> None:
         rows, prompts = map(list, zip(*eligible))
     stop_ids = [tok.convert_tokens_to_ids("<|im_end|>"), tok.convert_tokens_to_ids("<|endoftext|>")]
     llm = LLM(model=a.model, gpu_memory_utilization=a.gpu_mem, max_model_len=12288, seed=a.seed, enable_prefix_caching=True)
-    sp = SamplingParams(n=a.n, temperature=a.temperature, top_p=a.top_p, top_k=a.top_k, max_tokens=a.max_tokens,
+    evaluate(a, rows, prompts, tok, llm, SamplingParams, stop_ids, input_count)
+    if a.also_sample_eight_to:
+        a.out = a.also_sample_eight_to
+        a.n, a.temperature, a.top_p, a.top_k, a.max_tokens = 8, 1.0, 1.0, -1, 512
+        evaluate(a, rows, prompts, tok, llm, SamplingParams, stop_ids, input_count)
+
+
+def evaluate(a, rows, prompts, tok, llm, sampling_params, stop_ids, input_count):
+    sp = sampling_params(n=a.n, temperature=a.temperature, top_p=a.top_p, top_k=a.top_k, max_tokens=a.max_tokens,
                         stop_token_ids=stop_ids, seed=a.seed, skip_special_tokens=not a.enable_thinking)
     t0 = time.time()
     outs = llm.generate(prompts, sp)
