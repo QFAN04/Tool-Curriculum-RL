@@ -89,7 +89,9 @@ def main():
             variants = {
                 "student": None,
                 "current": feedback,
+                "field_only": f"{feedback}\nCheck the value of parameter {key!r}.",
                 "actionable": actionable,
+                "gold_only": compute_score(output, row["gold"], row["tools"], include_gold_in_feedback=True)["feedback"],
                 "gold": actionable + "\nExpected: " + json.dumps(row["gold"], ensure_ascii=False),
             }
             results = {}
