@@ -3,6 +3,7 @@ scripts/autodl/d4_grpo.sh text eol=lf
 scripts/autodl/d8_*.sh text eol=lf
 scripts/autodl/d3_rl.sh text eol=lf
 scripts/autodl/d9.sh text eol=lf
+scripts/autodl/d10.sh text eol=lf
 scripts/autodl/d12.sh text eol=lf
 scripts/autodl/d12_models.tsv text eol=lf
 scripts/autodl/d12_inputs.sha256 text eol=lf
