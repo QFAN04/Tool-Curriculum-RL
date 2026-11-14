@@ -62,11 +62,12 @@ def main():
     cmd = cli.add_subparsers(required=True, dest="command")
     mode = cmd.add_parser("thinking")
     mode.add_argument("summaries", nargs="+", type=Path)
+    mode.add_argument("--out", type=Path, required=True)
     mode = cmd.add_parser("paired")
     mode.add_argument("--samples", type=Path, required=True)
     mode.add_argument("--pairs", type=Path, required=True)
     mode.add_argument("--probe", type=Path)
-    cli.add_argument("--out", type=Path, required=True)
+    mode.add_argument("--out", type=Path, required=True)
     args = cli.parse_args()
     if args.command == "thinking":
         checks = {str(path): thinking_pass(json.loads(path.read_text())) for path in args.summaries}

@@ -128,3 +128,25 @@ def test_three_calls_create_graded_signal_on_strict_all_wrong_group():
     [detail] = [{"kind": "call", "scores": scores, "graded_scores": grades}]
     assert call_mixed_fraction([detail]) == 0
     assert graded_signal([detail])["graded_signal_on_binary_all_wrong"] == 1
+
+
+def test_d9_cli_accepts_output_after_subcommand(tmp_path, monkeypatch):
+    from tcrl.eval.d9 import main
+
+    summary = tmp_path / "summary.json"
+    summary.write_text(json.dumps({
+        "n_prompts": 20, "n": 1, "truncated_fraction": 0,
+        "thinking": {"nonempty_closed_fraction": 0, "closed_thinking_fraction": 0},
+    }), encoding="utf8")
+    out = tmp_path / "gate.json"
+    monkeypatch.setattr("sys.argv", ["d9", "thinking", str(summary), "--out", str(out)])
+    main()
+    assert json.loads(out.read_text())["pass"] is False
+
+    pairs, samples = tmp_path / "pairs.jsonl", tmp_path / "samples.jsonl"
+    pairs.write_text('{"id":"p","conversion":"unit"}\n', encoding="utf8")
+    samples.write_text('{"id":"p:literal","scores":[1]}\n{"id":"p:conversion","scores":[0]}\n', encoding="utf8")
+    monkeypatch.setattr("sys.argv", ["d9", "paired", "--samples", str(samples), "--pairs", str(pairs),
+                                    "--out", str(out)])
+    main()
+    assert json.loads(out.read_text())["all"]["gap"] == 1
