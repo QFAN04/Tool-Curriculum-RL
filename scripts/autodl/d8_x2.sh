@@ -11,8 +11,9 @@ bfcl=${TCRL_BFCL_DATA:-$PWD/runs/bfcl_data}
 score_python=${TCRL_BFCL_PYTHON:-python}
 (cd "$bfcl" && sha256sum -c "$OLDPWD/scripts/autodl/d7_bfcl.sha256")
 "$score_python" -c 'from importlib.metadata import version; from bfcl_eval.eval_checker.ast_eval.ast_checker import ast_checker; assert version("bfcl-eval") == "2026.3.23"'
+bash -n scripts/autodl/d4_grpo.sh
+bash -n scripts/autodl/d3_rl.sh
 if [[ ${1:-} == --check ]]; then
-    bash -n scripts/autodl/d4_grpo.sh
     test -s /root/SDPO/verl/trainer/main_ppo.py
     test -s "$base/model.safetensors.index.json"
     exit 0
