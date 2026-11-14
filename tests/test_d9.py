@@ -5,7 +5,7 @@ import pytest
 
 from tcrl.data.d9 import native_plan, paired_raw, synthetic
 from tcrl.data.split import visible_families
-from tcrl.eval.d9 import call_mixed_fraction, paired, thinking_pass
+from tcrl.eval.d9 import call_mixed_fraction, graded_signal, paired, thinking_pass
 from tcrl.prompts import render_calls
 from tcrl.sft.train_sft import build_example
 from tcrl.thinking import split_thinking, unpack_completion
@@ -74,8 +74,21 @@ def test_generated_gold_valid_and_visible_families_isolated():
     partitions = {k: set() for k in ("train", "gate", "heldout")}
     rows = list(synthetic())
     assert Counter(row["partition"] for row in rows) == {"train": 588, "gate": 196, "heldout": 392}
+    coverage = {}
     for row in rows:
-        assert row["question"] != row["literal_question"] and len(row["gold"]) == 2
+        assert row["question"] != row["literal_question"] and len(row["gold"]) == 3
+        assert len(row["tools"]) == 8
+        assert len({call["name"] for call in row["gold"]}) == 3
+        assert all("encoding" not in tool["name"] for tool in row["tools"])
+        assert "lookup" in row["gold"][0]["name"]
+        if row["partition"] == "heldout":
+            for call in row["gold"]:
+                kind = call["name"].split("_set_", 1)[-1]
+                coverage.setdefault(kind, set()).update(call["arguments"].values())
+    assert coverage["boolean"] == {True, False}
+    assert coverage["top_k"] == set(range(1, 11))
+    assert len({row["conversion"] for row in rows}) == 21
+    for row in rows:
         assert all(not validate_call(call, row["tools"]) for call in row["gold"])
         partitions[row["partition"]].update(visible_families(row))
     assert sum(map(len, partitions.values())) == len(set().union(*partitions.values()))
@@ -93,3 +106,25 @@ def test_d9_gates_and_pair_integrity():
                "thinking": {"nonempty_closed_fraction": .8, "closed_thinking_fraction": .9}}
     assert thinking_pass(summary)
     assert not thinking_pass({**summary, "truncated_fraction": .15})
+
+
+def test_three_calls_create_graded_signal_on_strict_all_wrong_group():
+    row = next(synthetic())
+    gold = row["gold"]
+    wrong = [
+        {**call, "arguments": {key: not value if type(value) is bool else value + 1
+                               for key, value in call["arguments"].items()}}
+        for call in gold[1:]
+    ]
+    expected = json.dumps(gold)
+    info = {"tools_json": json.dumps(row["tools"])}
+    predictions = [[gold[0], *wrong], [*gold[:2], wrong[1]]] * 4
+    outputs = ["<think>Plan.</think>" + render_calls(calls) for calls in predictions]
+    scores = [compute_score("tcrl", output, expected, info, thinking=True)["score"] for output in outputs]
+    grades = [compute_score("tcrl", output, expected, info, thinking=True, graded=True)["score"]
+              for output in outputs]
+    assert scores == [0] * 8
+    assert grades == pytest.approx([.60, .80] * 4)
+    [detail] = [{"kind": "call", "scores": scores, "graded_scores": grades}]
+    assert call_mixed_fraction([detail]) == 0
+    assert graded_signal([detail])["graded_signal_on_binary_all_wrong"] == 1

@@ -4,6 +4,7 @@ from collections import Counter
 from decimal import Decimal
 import hashlib
 import json
+from itertools import combinations
 from pathlib import Path
 import random
 import re
@@ -112,66 +113,117 @@ DOMAINS = (
     ("studio", "booth", "heldout"), ("aquarium", "tank", "heldout"),
     ("observatory", "dome", "heldout"), ("stadium", "section", "heldout"),
 )
-OPERATIONS = (
-    ("percent", "ratio", "number", "Decimal fraction on the 0 to 1 scale."),
-    ("distance", "metres", "integer", "Distance in meters."),
-    ("top_k", "count", "integer", "Number of ranked items to return, highest score first."),
-    ("boolean", "include_notes", "boolean", "Whether to include annotation notes. Default false."),
-    ("duration", "seconds", "integer", "Duration in seconds."),
-    ("relative_time", "offset_seconds", "integer", "Signed offset from the reference time, in seconds."),
-    ("encoding", "encoded", "string", "Standard padded Base64 of the UTF-8 label."),
-)
+OPERATIONS = {
+    "percent": ("ratio", "number", "Decimal fraction on the 0 to 1 scale."),
+    "distance": ("metres", "integer", "Distance in meters."),
+    "top_k": ("count", "integer", "Number of ranked items to return, highest score first."),
+    "boolean": ("include_notes", "boolean", "Whether to include annotation notes."),
+    "duration": ("seconds", "integer", "Duration in seconds."),
+    "relative_time": ("offset_seconds", "integer", "Signed offset from the reference time, in seconds."),
+    "rate_total": ("total_cents", "integer", "Total cost in cents, including any stated discount."),
+}
+NUMBERS = ("one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten")
+ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth")
+BOOLEAN = {
+    True: ("show the annotations", "keep the notes visible", "leave the annotations turned on",
+           "include the commentary", "make the notes available", "display the notes alongside the record"),
+    False: ("hide the annotations", "leave out the notes", "turn off commentary",
+            "show the record without notes", "suppress the annotations", "keep the notes private"),
+}
+TEMPLATES = {
+    "train": (
+        "Find the {item} record {code}, and update these settings: {settings}.",
+        "For {code}, pull up its {item} record. Here are the settings I need: {settings}.",
+        "Please apply {settings} for {code}. Also retrieve its {item} record.",
+        "I'm working on {code}. Get its {item} record and change {settings}.",
+    ),
+    "gate": (
+        "I need three actions for {code}: retrieve the {item} record and configure {settings}.",
+        "Could you handle {settings} for {code}? I also need the current {item} record.",
+    ),
+    "heldout": (
+        "At the {domain}, will you fetch the {item} record for {code} and apply {settings}?",
+        "My request for {code} has a lookup and two updates. Fetch its {item} record, then set {settings}.",
+        "Update {settings} on {code}; separately, return the matching {item} record.",
+    ),
+}
+
+
+def conversion_value(kind, index, rng):
+    n = rng.randint(2, 25)
+    style = index % 3
+    if kind == "percent":
+        return n / 100, (f"{n}%", f"{n} percent", f"{n} out of every 100")[style]
+    if kind == "distance":
+        return n * 1000, (f"{n} km", f"{n} kilometers", f"{n} kilometres")[style]
+    if kind == "duration":
+        return n * 60, (f"{n} minutes", f"{n} min", f"a window of {n} minutes")[style]
+    if kind == "relative_time":
+        sign = 1 if index % 2 else -1
+        direction = ("after", "ahead of", "following") if sign == 1 else ("before", "prior to", "earlier than")
+        return sign * n * 3600, f"{n} hours {direction[style]} the reference time"
+    if kind == "top_k":
+        i = index % 10
+        phrases = (f"the top {NUMBERS[i]} by score", f"ranked entries through the {ORDINALS[i]} place",
+                   f"a shortlist of {i + 1}, highest scores first")
+        return i + 1, phrases[(index // 10) % len(phrases)]
+    if kind == "boolean":
+        value = bool(index % 2)
+        return value, BOOLEAN[value][(index // 2) % len(BOOLEAN[value])]
+    price, quantity = rng.randint(2, 9), rng.randint(2, 12)
+    if style == 2:
+        return price * quantity * 90, f"{quantity} units at ${price} each, less a 10% discount"
+    return price * quantity * 100, (f"{quantity} items at ${price} apiece", f"${price} per item for {quantity} items")[style]
+
+
+def domain_tools(domain):
+    def tool(name, description, key, schema):
+        return {"name": f"{domain}_{name}", "description": description,
+                "parameters": {"type": "object", "properties": {key: schema}, "required": [key]}}
+    tools = {"lookup": tool("lookup", f"Retrieve an item record from the {domain}.",
+                            f"{domain}_item", {"type": "string"})}
+    for kind, (field, typ, description) in OPERATIONS.items():
+        tools[kind] = tool(f"set_{kind}", f"Apply {description} to the {domain} record.", f"{domain}_{field}",
+                           {"type": typ, "description": description})
+    return tools
 
 
 def synthetic():
-    import base64
-
+    operation_pairs = list(combinations(OPERATIONS, 2))
     for domain, item, split in DOMAINS:
         rng = random.Random(f"{SEED}:{domain}")
-        for kind, field, typ, description in OPERATIONS:
-            for i in range(14):
-                n = rng.sample(range(12, 99), 3)
-                code = f"{item}-{n[0]}-{i}"
-                if kind == "percent":
-                    value, source = n[1] / 100, f"{n[1]}%"
-                elif kind == "distance":
-                    value, source = n[1] * 1000, f"{n[1]} kilometers"
-                elif kind == "duration":
-                    value, source = n[1] * 60, f"{n[1]} minutes"
-                elif kind == "relative_time":
-                    value, source = -n[1] * 3600, f"{n[1]} hours before the reference time"
-                elif kind == "top_k":
-                    value, source = (1, "the single highest-ranked entry") if i % 2 == 0 else (3, "the three highest-ranked entries")
-                elif kind == "boolean":
-                    value, source = True, "show the annotations"
-                else:
-                    value = base64.b64encode(code.encode()).decode()
-                    source = f"the label {code!r} in Base64"
-                key, ref = f"{domain}_{field}", f"{domain}_item"
-                params = {key: {"type": typ, "description": description}}
-                if kind == "boolean":
-                    params[key]["default"] = False
-                def tool(name, desc, props, required):
-                    return {"name": f"{domain}_{name}", "description": desc,
-                            "parameters": {"type": "object", "properties": props, "required": required}}
-                tools = [
-                    tool(f"set_{kind}", f"Apply {description} to the {domain} record.",
-                         params, [] if kind == "boolean" else [key]),
-                    tool("lookup", f"Retrieve an item record from the {domain}.",
-                         {ref: {"type": "string"}}, [ref]),
-                ]
-                literal = json.dumps(value)
-                rendered = {
-                    "train": f"Look up the {item} {code}. For the {domain} {kind.replace('_', ' ')} setting, use {{value}}.",
-                    "gate": f"For {code}, retrieve its {domain} record and set the {kind.replace('_', ' ')} option to {{value}}.",
-                    "heldout": f"Two actions for {code} at the {domain}: fetch its record and apply {{value}} as the {kind.replace('_', ' ')} setting.",
-                }[split]
-                yield {"id": f"d9:{domain}:{kind}:{i:02}", "subset": "d9-synthetic", "kind": "call",
-                       "source": "synthetic", "partition": split, "conversion": kind, "refusal": None,
-                       "question": rendered.format(value=source), "literal_question": rendered.format(value=literal),
-                       "tools": tools, "gold": [{"name": tools[1]["name"], "arguments": {ref: code}},
-                                                 {"name": tools[0]["name"], "arguments": {key: value}}],
-                       "plan": f"Look up {code}. Express {source} as {literal} for the {kind.replace('_', ' ')} setting."}
+        pairs = operation_pairs * 4 + rng.sample(operation_pairs, 14)
+        rng.shuffle(pairs)
+        tools = domain_tools(domain)
+        visits = Counter()
+        for i, pair in enumerate(pairs):
+            if rng.randrange(2):
+                pair = pair[::-1]
+            code = f"{item}-{rng.randint(12, 99)}-{i}"
+            specs = []
+            for kind in pair:
+                value, expression = conversion_value(kind, visits[kind], rng)
+                visits[kind] += 1
+                specs.append((kind, value, expression))
+            def call(kind, value):
+                tool = tools[kind]
+                key, = tool["parameters"]["properties"]
+                return {"name": tool["name"], "arguments": {key: value}}
+            def settings(literal):
+                return " and ".join(f"{kind.replace('_', ' ')} to {json.dumps(value) if literal else expression}"
+                                    for kind, value, expression in specs)
+            template = rng.choice(TEMPLATES[split])
+            visible = list(tools.values())
+            rng.shuffle(visible)
+            yield {"id": f"d9:{domain}:{'+'.join(pair)}:{i:02}", "subset": "d9-synthetic", "kind": "call",
+                   "source": "synthetic", "partition": split, "conversion": "+".join(sorted(pair)), "refusal": None,
+                   "question": template.format(item=item, code=code, domain=domain, settings=settings(False)),
+                   "literal_question": template.format(item=item, code=code, domain=domain, settings=settings(True)),
+                   "tools": visible, "gold": [call("lookup", code), *(call(kind, value) for kind, value, _ in specs)],
+                   "plan": f"Retrieve {code}. " + " ".join(
+                       f"For {kind.replace('_', ' ')}, {expression} gives {json.dumps(value)}."
+                       for kind, value, expression in specs)}
+
 
 
 def export(records, path, split):
@@ -240,6 +292,8 @@ def main():
     (out / "bfcl_miss78.ids").write_text("\n".join(calls) + "\n", encoding="utf8")
     (out / "bfcl_thinking112.ids").write_text("\n".join(sorted(misses)) + "\n", encoding="utf8")
     report = {"raw": dict(stats), "raw_categories": dict(Counter(r["conversion"] for r in raw)),
+              "synthetic_pair_counts": {split: dict(sorted(Counter(r["conversion"] for r in rows if r["kind"] == "call").items()))
+                                        for split, rows in sets.items()},
               "raw_gold_families": len(set().union(*(gold_families(r) for r in raw))),
               "partitions": {k: {"rows_or_pairs": len(v), "refusals": sum(r["kind"] == "refuse" for r in v),
                                   "visible_families": sorted(families[k]),

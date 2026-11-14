@@ -91,9 +91,8 @@ save_adapter() {
     diff -qr "$src" "$persist/$arm"
 }
 base=$e0
-train_sft="$data/train_sft.jsonl"
-think=()
-export TCRL_D9_THINK_PREFIXED=0
+train_sft="$data/train_thinking_sft.jsonl"
+think=(--enable-thinking)
 if ! python -c 'import json,sys;sys.exit(not json.load(open(sys.argv[1]))["pass"])' "$out/thinking/gate.json"; then
     python -m tcrl.sft.train_sft --model "$e0" --data "$data/warmup_thinking_sft.jsonl" \
         --out "$work/warmup" --enable-thinking --lr 2e-5 --max-steps 12 --batch-size 4 --grad-accum 2
@@ -106,9 +105,8 @@ if ! python -c 'import json,sys;sys.exit(not json.load(open(sys.argv[1]))["pass"
     if ! python -c 'import json,sys;sys.exit(not json.load(open(sys.argv[1]))["pass"])' "$work/warmup_gate.json"; then
         exit 0
     fi
-    train_sft="$data/train_thinking_sft.jsonl"
-    think=(--enable-thinking)
-    export TCRL_D9_THINK_PREFIXED=$(python - "$base" <<'PY'
+fi
+think_prefixed=$(python - "$base" <<'PY'
 import sys
 from transformers import AutoTokenizer
 t = AutoTokenizer.from_pretrained(sys.argv[1])
@@ -121,10 +119,10 @@ for tag in ("<think>", "</think>", "<tool_call>", "</tool_call>"):
 print(int(p.rstrip().endswith("<think>")))
 PY
 )
-fi
-opts=(--temperature 1 --top-p 1 --max-tokens 1024 --seed 20261118)
-eval_dev "$base" "$data/train.parquet" "$work/train_probe" --n 8 "${opts[@]}" "${think[@]}"
-eval_dev "$base" "$data/gate.parquet" "$work/gate_probe" "${opts[@]}" "${think[@]}"
+probe_opts=(--temperature 1 --top-p 1 --top-k -1 --max-tokens 1024 --seed 20261118)
+eval_opts=(--temperature 0.6 --top-p 0.95 --top-k 20 --max-tokens 1024)
+eval_dev "$base" "$data/train.parquet" "$work/train_probe" --n 8 --graded-diagnostics "${probe_opts[@]}" "${think[@]}"
+eval_dev "$base" "$data/gate.parquet" "$work/gate_probe" "${eval_opts[@]}" --seed 20261118 "${think[@]}"
 python -m tcrl.eval.d9 paired --samples "$work/gate_probe/samples.jsonl" --pairs "$data/gate_pairs.jsonl" \
     --probe "$work/train_probe/samples.jsonl" --out "$work/gate.json"
 if ! python -c 'import json,sys;sys.exit(not json.load(open(sys.argv[1]))["pass"])' "$work/gate.json"; then
@@ -145,15 +143,15 @@ for arm in sft binary graded; do
     run="d9_${arm}_$steps"
     bash scripts/autodl/d3_rl.sh grpo "$base" "$run" \
         "data.train_files=[$data/train.parquet]" "data.val_files=[$data/gate.parquet]" \
-        data.seed=20261118 "data.apply_chat_template_kwargs.enable_thinking=$([[ ${#think[@]} -gt 0 ]] && echo true || echo false)" \
+        data.seed=20261118 data.apply_chat_template_kwargs.enable_thinking=true \
         data.max_response_length=1024 max_model_len=5120 actor_rollout_ref.rollout.temperature=1.0 \
         actor_rollout_ref.rollout.top_p=1.0 actor_rollout_ref.rollout.top_k=-1 \
         trainer.total_training_steps="$steps" trainer.total_epochs=2 trainer.val_before_train=False \
         trainer.test_freq=-1 trainer.save_freq="$steps" trainer.max_actor_ckpt_to_keep=1 \
         custom_reward_function.path=/root/tcrl/src/tcrl/verl_reward_d9.py custom_reward_function.name=compute_score \
         "++custom_reward_function.reward_kwargs.graded=$graded" \
-        "++custom_reward_function.reward_kwargs.thinking=$([[ "${#think[@]}" -gt 0 ]] && echo true || echo false)" \
-        "++custom_reward_function.reward_kwargs.prefixed=$([[ "$TCRL_D9_THINK_PREFIXED" == 1 ]] && echo true || echo false)"
+        ++custom_reward_function.reward_kwargs.thinking=true \
+        "++custom_reward_function.reward_kwargs.prefixed=$([[ "$think_prefixed" == 1 ]] && echo true || echo false)"
     adapter="/root/autodl-tmp/runs/$run/ckpt/$run/global_step_$steps/actor/lora_adapter"
     test -s "$adapter/adapter_model.safetensors"
     mkdir "$work/$arm"
@@ -171,10 +169,10 @@ for arm in base sft binary graded; do
     fi
     dest="$work/results/$arm"
     mkdir -p "$dest"
-    eval_dev "$model" "$data/heldout.parquet" "$dest/heldout" "${opts[@]}" "${think[@]}"
+    eval_dev "$model" "$data/heldout.parquet" "$dest/heldout" "${eval_opts[@]}" --seed 20261118 "${think[@]}"
     python -m tcrl.eval.d9 paired --samples "$dest/heldout/samples.jsonl" --pairs "$data/heldout_pairs.jsonl" --out "$dest/paired.json"
-    eval_dev "$model" "$data/external_dev541.parquet" "$dest/dev" "${opts[@]}" "${think[@]}"
-    eval_bfcl "$model" "$dest/bfcl" --temperature 1 --max-tokens 1024 "${think[@]}"
+    eval_dev "$model" "$data/external_dev541.parquet" "$dest/dev" "${eval_opts[@]}" --seed 20261118 "${think[@]}"
+    eval_bfcl "$model" "$dest/bfcl" "${eval_opts[@]}" "${think[@]}"
     python - "$dest/bfcl.score.json" "$data/bfcl_miss78.ids" "$dest/bfcl_miss78.json" <<'PYTHON'
 import json, sys
 from pathlib import Path

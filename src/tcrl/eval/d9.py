@@ -32,6 +32,24 @@ def call_mixed_fraction(samples):
     return sum(0 < sum(g) < 8 for g in groups) / len(groups)
 
 
+def graded_signal(samples):
+    calls = [r for r in samples if r["kind"] == "call"]
+    graded_groups = [r["graded_scores"] for r in calls]
+    if any(len(g) != 8 or any(not 0 <= score <= 1 for score in g) for g in graded_groups):
+        raise ValueError("Expected eight bounded graded scores per call group")
+    spread = [max(g) - min(g) > 1e-9 for g in graded_groups]
+    return {
+        "call_groups": len(calls),
+        "graded_nonconstant_groups": sum(spread),
+        "graded_signal_on_binary_all_wrong": sum(active and not any(row["scores"])
+                                                 for active, row in zip(spread, calls, strict=True)),
+        "graded_signal_on_binary_all_right": sum(active and all(row["scores"])
+                                                 for active, row in zip(spread, calls, strict=True)),
+        "binary_mixed_lost_under_graded": sum(not active and 0 < sum(row["scores"]) < 8
+                                             for active, row in zip(spread, calls, strict=True)),
+    }
+
+
 def thinking_pass(summary):
     return (summary["n_prompts"] == 20 and summary["n"] == 1
             and summary["thinking"]["nonempty_closed_fraction"] >= .80
@@ -56,7 +74,9 @@ def main():
     else:
         result = paired(read(args.samples), read(args.pairs))
         if args.probe:
-            mixed = call_mixed_fraction(read(args.probe))
+            samples = read(args.probe)
+            mixed = call_mixed_fraction(samples)
+            result["graded_signal"] = graded_signal(samples)
             result["call_mixed_fraction"] = mixed
             core = result["all"]
             result["pass"] = core["conversion"] <= .65 and core["gap"] >= .15 and mixed >= .20

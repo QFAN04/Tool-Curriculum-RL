@@ -45,6 +45,7 @@ def main() -> None:
                     help="官方 Instruct 基线用：不用我们的 system 提示，改用模型自带对话模板的 tools= 参数（它训练时见过的格式）")
     ap.add_argument("--enable-thinking", action="store_true")
     ap.add_argument("--top-k", type=int, default=-1)
+    ap.add_argument("--graded-diagnostics", action="store_true")
     a = ap.parse_args()
     chat_kwargs = {**CHAT_KWARGS, "enable_thinking": a.enable_thinking}
     if a.max_tokens is None:
@@ -102,7 +103,7 @@ def main() -> None:
         for r, o, prompt in zip(rows, outs, prompts, strict=True):
             ei = r["extra_info"]
             tools = json.loads(ei["tools_json"])
-            scores, texts = [], []
+            scores, texts, graded_scores = [], [], []
             for c in o.outputs:
                 final = c.text
                 if a.enable_thinking:
@@ -110,6 +111,11 @@ def main() -> None:
                     thinking.append(metrics)
                 res = (compute_score(final, r["reward_model"]["ground_truth"], tools)
                        if final is not None else {"score": 0, "incorrect_format": 1})
+                if a.graded_diagnostics:
+                    from tcrl.verl_reward_graded import compute_score as graded_score
+                    graded_scores.append(graded_score(
+                        r["data_source"], final, r["reward_model"]["ground_truth"], ei
+                    )["score"] if final is not None and c.finish_reason != "length" else 0.0)
                 scores.append(res["score"])
                 texts.append(c.text)
                 out_tok += len(c.token_ids)
@@ -124,6 +130,7 @@ def main() -> None:
             groups["all_right" if acc == 1 else "all_wrong" if acc == 0 else "mixed"] += 1
             f.write(json.dumps({"id": ei["id"], "split": ei["split"], "kind": ei["kind"], "gold": r["reward_model"]["ground_truth"],
                                 "outputs": texts, "scores": scores,
+                                **({"graded_scores": graded_scores} if a.graded_diagnostics else {}),
                                 **({"thinking": thinking[-len(scores):]} if a.enable_thinking else {})}, ensure_ascii=False) + "\n")
     n_out = sum(len(o.outputs) for o in outs)
     summary = {
