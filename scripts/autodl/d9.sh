@@ -100,20 +100,9 @@ if [[ "$mode" == gate ]]; then
     exit 0
 fi
 
-# Require a completed direct E0 gate for this frozen dataset before any updates.
-gate="$out/gate"
-if [[ ! -s "$gate/direct_e0_manifest.sha256" || ! -s "$gate/exit.txt" ]] ||
-   [[ $(cat "$gate/direct_e0_manifest.sha256") != "$manifest_sha" || $(cat "$gate/exit.txt") != 0 ]]; then
-    echo "Run d9.sh gate first with the current frozen dataset." >&2
-    exit 2
-fi
-python - "$gate/gate.json" <<'PYTHON'
-import json, sys
-with open(sys.argv[1], encoding="utf8") as f:
-    result = json.load(f)
-if result.get("pass") is not True:
-    raise SystemExit("The direct E0 data gate did not pass.")
-PYTHON
+# The approved archive survives instance shutdown and preserves the original gate result.
+gate_archive=${TCRL_D9_APPROVED_GATE:-$p/runs/d9-direct-gate-43482.tar.gz}
+python -m tcrl.eval.d9_gate "$data/manifest.json" "$out/gate" "$gate_archive"
 bash -n scripts/autodl/d3_rl.sh
 test -s /root/SDPO/verl/trainer/main_ppo.py
 mkdir "$work"
@@ -136,6 +125,12 @@ for arm in sft binary graded; do
             --lr "$lr" --max-steps "$steps" --batch-size 8 --grad-accum 4
         save_adapter "$work/sft/final" sft
         continue
+    fi
+    # The full actor checkpoint is staged here before its adapter is archived.
+    free_kib=$(df -Pk /root/autodl-tmp | awk 'NR==2 {print $4}')
+    if (( free_kib < 24 * 1024 * 1024 )); then
+        echo "D9 $arm needs at least 24 GiB free before creating the actor checkpoint." >&2
+        exit 1
     fi
     graded=false
     if [[ "$arm" == graded ]]; then graded=true; fi
