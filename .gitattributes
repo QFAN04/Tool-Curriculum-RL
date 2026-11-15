@@ -7,4 +7,5 @@ scripts/autodl/d10.sh text eol=lf
 scripts/autodl/d12.sh text eol=lf
 scripts/autodl/d12_models.tsv text eol=lf
 scripts/autodl/d12_inputs.sha256 text eol=lf
+scripts/autodl/d12_d10_cf.sha256 text eol=lf
 data/manifests/splits.json text eol=lf

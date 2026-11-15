@@ -18,3 +18,4 @@ x2	1	models/d3_sft_gold_disjoint_merged	runs/d8_x2_graded_30step/lora_adapter	st
 d9_sft	1	models/d3_sft_gold_disjoint_merged	runs/d9/methods/sft	standard
 d9_binary	1	models/d3_sft_gold_disjoint_merged	runs/d9/methods/binary	standard
 d9_graded	1	models/d3_sft_gold_disjoint_merged	runs/d9/methods/graded	standard
+d10_cf	1	models/d3_sft_gold_disjoint_merged	runs/d10_curriculum/cf/train/final	standard

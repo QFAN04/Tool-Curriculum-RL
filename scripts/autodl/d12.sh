@@ -38,11 +38,16 @@ while IFS=$'\t' read -r id n8 base adapter prompt; do
         require_file "$weights/$adapter/adapter_config.json"
         require_file "$weights/$adapter/adapter_model.safetensors"
         case "$id" in
-            e0plus|d7_*|d8_*|d9_sft) require_file "$weights/$adapter/special_tokens.pt" ;;
+            e0plus|d7_*|d8_*|d9_sft|d10_cf) require_file "$weights/$adapter/special_tokens.pt" ;;
         esac
     fi
 done < <(tail -n +2 "$models")
 (( missing == 0 ))
+# Match the D10 winner against the hashes archived at training completion.
+(
+    cd "$weights"
+    sha256sum -c "$OLDPWD/scripts/autodl/d12_d10_cf.sha256"
+)
 if [[ "$mode" == --check ]]; then exit 0; fi
 
 mkdir -p "$(dirname "$out")"
@@ -50,9 +55,11 @@ if [[ "$mode" == --run ]]; then
     mkdir "$out"
     cp "$models" "$out/models.tsv"
     cp scripts/autodl/d12_inputs.sha256 "$out/inputs.sha256"
+    cp scripts/autodl/d12_d10_cf.sha256 "$out/d10_cf.sha256"
 else
     cmp "$models" "$out/models.tsv"
     cmp scripts/autodl/d12_inputs.sha256 "$out/inputs.sha256"
+    cmp scripts/autodl/d12_d10_cf.sha256 "$out/d10_cf.sha256"
     if [[ -e "$out/exit.txt" ]] && [[ $(cat "$out/exit.txt") == 0 ]]; then
         echo "D12 is already complete."
         exit 0

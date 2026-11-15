@@ -16,8 +16,9 @@ def test_frozen_d12_matrix():
     entries = d12.read_models(Path("scripts/autodl/d12_models.tsv"))
     assert {r["id"] for r in entries if r["n8"] == "1"} == {
         "b1", "e0", "e0plus", "e1", "e2b_gold_only", "x2", "d7_cf",
-        "d8_cs", "d8_cu", "d8_cf", "d8_csplus", "d9_sft", "d9_binary", "d9_graded",
+        "d8_cs", "d8_cu", "d8_cf", "d8_csplus", "d9_sft", "d9_binary", "d9_graded", "d10_cf",
     }
+    assert next(row["adapter"] for row in entries if row["id"] == "d10_cf") == "runs/d10_curriculum/cf/train/final"
 
 
 def test_dual_decode_uses_one_engine_and_fixed_sampling(monkeypatch, tmp_path):

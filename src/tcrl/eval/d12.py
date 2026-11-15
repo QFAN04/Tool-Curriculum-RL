@@ -27,6 +27,7 @@ ADDITIONAL_COMPARISONS = (
     ("d7_cf", "d7_cu"), ("d7_cf", "d7_cs"), ("d8_cf", "d8_cu"),
     ("d8_cf", "d8_cs"), ("d8_cf", "d8_csplus"), ("d9_binary", "d9_sft"),
     ("d9_graded", "d9_sft"), ("d9_graded", "d9_binary"),
+    ("d10_cf", "d9_sft"), ("d10_cf", "d9_binary"),
 )
 
 
@@ -34,11 +35,11 @@ def read_models(path):
     with path.open(encoding="utf-8", newline="") as f:
         entries = list(csv.DictReader(f, delimiter="\t"))
     ids = [row["id"] for row in entries]
-    if (len(ids) != 19 or len(set(ids)) != 19 or "e0" not in ids
-            or Counter(row["n8"] for row in entries) != {"1": 14, "0": 5}
+    if (len(ids) != 20 or len(set(ids)) != 20 or "e0" not in ids
+            or Counter(row["n8"] for row in entries) != {"1": 15, "0": 5}
             or any(row["prompt"] not in {"standard", "native", "fewshot3"} for row in entries)
             or {arm for pair in ADDITIONAL_COMPARISONS for arm in pair} - set(ids)):
-        raise ValueError("Expected 19 distinct frozen models, 14 with n=8")
+        raise ValueError("Expected 20 distinct frozen models, 15 with n=8")
     return entries
 
 
