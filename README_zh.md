@@ -3,7 +3,7 @@
 # tool-curriculum-rl
 
 <p align="center">
-  <img src="docs/figures/banner.svg" alt="ToolCurriculum-RL: LoRA SFT、GRPO、SDPO 与失败驱动自生成课程对比" width="100%">
+  <img src="docs/figures/banner.png" alt="Tool-Curriculum-RL: Qwen3-4B, LoRA SFT, GRPO, SDPO, C-F" width="100%">
 </p>
 
 **从 `Qwen3-4B-Base` 到可用工具调用模型：关于 LoRA SFT、GRPO（二值 vs 分级）、SDPO 与失败驱动自生成课程（D1–D12）的系统实验仓库。**

@@ -3,7 +3,7 @@
 # tool-curriculum-rl
 
 <p align="center">
-  <img src="docs/figures/banner.svg" alt="ToolCurriculum-RL: after LoRA SFT, what helps a 4B model solve new tool tasks? Four post-training paths compared across literal (D12) and implicit-conversion (D9/D10) evaluations." width="100%">
+  <img src="docs/figures/banner.png" alt="Tool-Curriculum-RL: Qwen3-4B, LoRA SFT, GRPO, SDPO, and C-F failure-driven curriculum" width="100%">
 </p>
 
 **From `Qwen3-4B-Base` to a tool-calling model: a controlled D1–D12 study of LoRA SFT, GRPO (binary vs. graded), SDPO, and failure-driven self-curriculum.**
