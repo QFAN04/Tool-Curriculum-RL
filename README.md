@@ -2,9 +2,13 @@
 
 # tool-curriculum-rl
 
+<p align="center">
+  <img src="docs/figures/banner.svg" alt="ToolCurriculum-RL: after LoRA SFT, what helps a 4B model solve new tool tasks? Four post-training paths compared across literal (D12) and implicit-conversion (D9/D10) evaluations." width="100%">
+</p>
+
 **From `Qwen3-4B-Base` to a tool-calling model: a controlled D1–D12 study of LoRA SFT, GRPO (binary vs. graded), SDPO, and failure-driven self-curriculum.**
 
-This project investigates a practical question: once a 4B base model learns how to invoke tools via schema-guided LoRA SFT, what actually helps it solve **new** problems later—scalar RL (GRPO), richer teacher error feedback (SDPO), or generating its own training tasks from past failures (`C-F`)?
+This project investigates a concrete question: once a 4B base model learns how to invoke tools via schema-guided LoRA SFT, what actually helps it solve **new** tasks later: scalar RL (GRPO), richer teacher error feedback (SDPO), or generating its own training tasks from past failures (`C-F`)?
 
 All experiments (D1–D12) were run on single-GPU RTX PRO 6000 nodes with fixed seeds/data splits, paired statistical tests, and a sealed 3,018-task final evaluation ([full research report in Chinese](docs/FINAL_REPORT.md)).
 
