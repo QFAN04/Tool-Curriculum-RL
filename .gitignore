@@ -1,6 +1,42 @@
-runs/
+# Python
 __pycache__/
-*.pyc
-.idea/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Experiment artifacts & checkpoints (archived externally, not in git)
+runs/
+checkpoints/
+outputs/
+wandb/
+*.ckpt
+*.safetensors
+*.pt
+*.pth
+*.bin
+*.tar.gz
+*.zip
+
+# Data (manifests stay in git; raw & processed caches do not)
 data/raw/
+data/cache/
 data/processed/
+data/ood/
+*.parquet
+!data/manifests/**
+
+# Secrets & credentials
+.env
+.env.*
+*.key
+*.pem
+gcp-key*.json
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

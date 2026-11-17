@@ -3,7 +3,7 @@
 - 日期：2026-11-12
 - 目的：Go/No-Go ①——SDPO 仓库能否在单卡 RTX PRO 6000 96GB 上以 LoRA 跑通 GRPO 与 SDPO。
 - 硬件：AutoDL 西北B，RTX PRO 6000 Blackwell 96GB × 1，驱动 580.82.09；单价 ¥8.36/h（用户开机时报的价格）。
-- 环境：私有镜像 `ssrl-verl070-vllm012`（Python 3.12.3、torch 2.9.0+cu129、vLLM 0.12.0、transformers 4.57.3、peft 0.18.0、ray 2.52.1）。没有重装依赖，SDPO 通过 `PYTHONPATH=/root/SDPO` 覆盖镜像里的 verl 0.7.0。
+- 环境：基础镜像（veRL 0.7.0 + vLLM 0.12.0，Python 3.12.3、torch 2.9.0+cu129、transformers 4.57.3、peft 0.18.0、ray 2.52.1）。没有重装依赖，SDPO 通过 `PYTHONPATH=/root/SDPO` 覆盖镜像里的 verl 0.7.0。
 - 代码：`third_party/SDPO` @ `7c457fc`，无改动。启动脚本 `scripts/autodl/d1_smoke.sh`。
 - 数据：仓库自带 ToolAlpaca（`datasets/tooluse`，train 4046 / test 68），用 `data/preprocess.py` 转 parquet。
 - 模型：Qwen3-0.6B（官方 Instruct 版，仅用于冒烟）。
